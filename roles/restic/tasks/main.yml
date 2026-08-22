@@ -82,7 +82,7 @@
 - name: Check whether the local repo is already initialized
   ansible.builtin.stat:
     path: "{{ restic_repo_dir }}/config"
-  register: local_repo_check
+  register: restic_local_repo_check
 
 - name: Initialize the local repo (once)
   ansible.builtin.command: restic init
@@ -91,7 +91,7 @@
     RESTIC_PASSWORD_FILE: /etc/restic/repo.pass
   become: true
   become_user: "{{ restic_user }}"
-  when: not local_repo_check.stat.exists
+  when: not restic_local_repo_check.stat.exists
 
 - name: Ensure the off-site directory exists on the peer
   ansible.builtin.file:
@@ -101,7 +101,7 @@
 
 - name: Check whether the off-site repo is already initialized
   ansible.builtin.command: ssh {{ restic_offsite_host }} test -e {{ restic_offsite_path }}/config
-  register: offsite_repo_check
+  register: restic_offsite_repo_check
   failed_when: false
   changed_when: false
 
@@ -110,7 +110,7 @@
   environment:
     RESTIC_REPOSITORY: "sftp:{{ restic_user }}@{{ restic_offsite_host }}:{{ restic_offsite_path }}"
     RESTIC_PASSWORD_FILE: /etc/restic/repo.pass
-  when: offsite_repo_check.rc != 0
+  when: restic_offsite_repo_check.rc != 0
 
 - name: Install the systemd units
   ansible.builtin.copy:
