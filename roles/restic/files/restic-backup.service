@@ -5,5 +5,5 @@ Description=restic backup of unison-synced directories (mesh tag)
 User=jhammel
 Type=oneshot
 EnvironmentFile=/etc/restic/backup.env
-ExecStart=/usr/bin/restic backup /home/jhammel/web /home/jhammel/docs /home/jhammel/image /home/jhammel/movies /home/jhammel/music --exclude-caches --exclude-file=/etc/restic/excludes.txt --tag mesh
+ExecStart=/etc/restic/backup.sh
 ExecStartPost=/usr/bin/restic forget --tag mesh --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 --prune
