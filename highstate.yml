@@ -22,9 +22,17 @@
 # forge's build steps, restic's `restic init`) or predict some
 # conditional-on-registered-result tasks. Read the task names in the diff
 # output, not just the summary counts, for those.
+#
+# Personal/topology values (directory layout, peer hostnames) are NOT tracked
+# in this public repo — they're read from ~/web/k0s-infra-vars.yml on the
+# target host. Copy k0s-infra-vars.yml.example there and fill it in before
+# running this. Missing the file fails fast with a clear undefined-variable
+# error, which is intentional.
 
 - name: Apply full k0s.org host state
   hosts: all
+  vars_files:
+    - "{{ ansible_env.HOME }}/web/k0s-infra-vars.yml"
   roles:
     - role: restic
       tags: [restic]
