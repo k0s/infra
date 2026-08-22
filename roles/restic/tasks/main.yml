@@ -1,0 +1,139 @@
+---
+# Stand up restic versioned backup: a local repo of the synced directories plus
+# a phase-1 self-hosted off-site mirror, both on systemd timers.
+#
+# Migrated from clawdette's ~/web/ansible/restic.yaml (2026-08-22) — see
+# clawdette operations/restic-backup.md for the full runbook and
+# clawdette log/2026-08-11-restic-live.md for how it was first done by hand.
+# Runs as the owning user (jhammel), not root: the user already owns the
+# synced directories and already has SSH access to the off-site peer, so root
+# would just mean provisioning a second, unnecessary SSH trust.
+#
+# Idempotent by design: the password is generated once and never touched again
+# if it already exists (regenerating it would orphan the existing repo's
+# encrypted data), and `restic init` only runs if the repo doesn't already have
+# a config. Re-running this role against an already-set-up host is safe.
+#
+# What this does NOT do: install `restic` itself (assumed present — apt/pacman/
+# dnf per operations/restic-backup.md) or make the off-site-host decision —
+# that's a per-deployment choice, set via restic_offsite_host/restic_offsite_path.
+
+- name: Check restic is installed
+  ansible.builtin.command: which restic
+  changed_when: false
+
+- name: Create /etc/restic
+  ansible.builtin.file:
+    path: /etc/restic
+    state: directory
+    owner: "{{ restic_user }}"
+    mode: "0755"
+  become: true
+
+- name: Generate the repo password (once — never overwrite an existing one)
+  ansible.builtin.shell:
+    cmd: umask 077; openssl rand -base64 24 > /etc/restic/repo.pass
+    creates: /etc/restic/repo.pass
+  become: true
+
+- name: Repo password ownership/permissions
+  ansible.builtin.file:
+    path: /etc/restic/repo.pass
+    owner: "{{ restic_user }}"
+    mode: "0600"
+  become: true
+
+- name: Local repo env
+  ansible.builtin.copy:
+    dest: /etc/restic/backup.env
+    owner: "{{ restic_user }}"
+    mode: "0644"
+    content: |
+      RESTIC_REPOSITORY={{ restic_repo_dir }}
+      RESTIC_PASSWORD_FILE=/etc/restic/repo.pass
+  become: true
+
+- name: Off-site repo env
+  ansible.builtin.copy:
+    dest: /etc/restic/offsite.env
+    owner: "{{ restic_user }}"
+    mode: "0644"
+    content: |
+      RESTIC_REPOSITORY=sftp:{{ restic_user }}@{{ restic_offsite_host }}:{{ restic_offsite_path }}
+      RESTIC_PASSWORD_FILE=/etc/restic/repo.pass
+  become: true
+
+- name: Excludes file
+  ansible.builtin.copy:
+    src: excludes.txt
+    dest: /etc/restic/excludes.txt
+    owner: "{{ restic_user }}"
+    mode: "0644"
+  become: true
+
+- name: Create the local repo directory
+  ansible.builtin.file:
+    path: "{{ restic_repo_dir }}"
+    state: directory
+    owner: "{{ restic_user }}"
+    mode: "0755"
+  become: true
+
+- name: Check whether the local repo is already initialized
+  ansible.builtin.stat:
+    path: "{{ restic_repo_dir }}/config"
+  register: local_repo_check
+
+- name: Initialize the local repo (once)
+  ansible.builtin.command: restic init
+  environment:
+    RESTIC_REPOSITORY: "{{ restic_repo_dir }}"
+    RESTIC_PASSWORD_FILE: /etc/restic/repo.pass
+  become: true
+  become_user: "{{ restic_user }}"
+  when: not local_repo_check.stat.exists
+
+- name: Ensure the off-site directory exists on the peer
+  ansible.builtin.file:
+    path: "{{ restic_offsite_path }}"
+    state: directory
+  delegate_to: "{{ restic_offsite_host }}"
+
+- name: Check whether the off-site repo is already initialized
+  ansible.builtin.command: ssh {{ restic_offsite_host }} test -e {{ restic_offsite_path }}/config
+  register: offsite_repo_check
+  failed_when: false
+  changed_when: false
+
+- name: Initialize the off-site repo (once)
+  ansible.builtin.command: restic init
+  environment:
+    RESTIC_REPOSITORY: "sftp:{{ restic_user }}@{{ restic_offsite_host }}:{{ restic_offsite_path }}"
+    RESTIC_PASSWORD_FILE: /etc/restic/repo.pass
+  when: offsite_repo_check.rc != 0
+
+- name: Install the systemd units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  become: true
+  loop:
+    - restic-backup.service
+    - restic-backup.timer
+    - restic-check.service
+    - restic-check.timer
+    - restic-offsite.service
+    - restic-offsite.timer
+  notify: Reload systemd
+
+- name: Enable and start the timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  become: true
+  loop:
+    - restic-backup.timer
+    - restic-check.timer
+    - restic-offsite.timer

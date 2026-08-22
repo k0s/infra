@@ -1,0 +1,26 @@
+---
+# Wire up k0sNgin as a host-level systemd service.
+#
+# Migrated from clawdette's ~/web/ansible/k0sngin-service.yaml (2026-08-22),
+# converted from a static file copy to a template so K0SNGIN_LINKS tracks
+# wherever this repo is actually cloned (infra_repo_path), rather than the old
+# hardcoded ~/web/ansible/links.json path.
+#
+# This installs the *service wiring* only. Installing the k0sNgin application
+# itself (clone + `uv sync`) is a separate concern that lives in the k0sNgin
+# repo's own ansible/ directory — see that repo's infra/ansible/install_k0sNgin.yaml.
+
+- name: Render k0sNgin systemd service
+  become: true
+  ansible.builtin.template:
+    src: k0sNgin.service.j2
+    dest: /etc/systemd/system/k0sNgin.service
+    mode: "0644"
+  notify: Reload systemd and restart k0sNgin
+
+- name: Enable k0sNgin service
+  become: true
+  ansible.builtin.systemd_service:
+    name: k0sNgin
+    enabled: true
+    state: started

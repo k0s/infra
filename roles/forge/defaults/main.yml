@@ -1,0 +1,4 @@
+---
+forge_repo: https://github.com/forge-ext/forge
+forge_src: "{{ ansible_env.HOME }}/src/forge"
+forge_ext_dir: "{{ ansible_env.HOME }}/.local/share/gnome-shell/extensions/forge@jmmaranan.com"

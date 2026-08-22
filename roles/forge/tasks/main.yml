@@ -1,0 +1,74 @@
+---
+# Install the Forge GNOME extension from git (https://github.com/forge-ext/forge).
+#
+# Migrated from clawdette's ~/web/ansible/forge.yaml (2026-08-22).
+#
+# Why git and not extensions.gnome.org: as of 2026-07-03 the e.g.o release (v89)
+# supports GNOME Shell <= 49 only; git main declares 45-50.1, which the Ubuntu
+# 26.04 / GNOME 50 upgrade needs. See clawdette projects/toolbox/ for the plan.
+#
+# Deliberately does NOT run Forge's `make all` — its `restart` target logs you
+# out on Wayland. After a run, log out/in manually to reload the shell.
+# Rollback: restore the .bak dir created below, or reinstall v89 from e.g.o.
+
+- name: Check build tools are present (apt packages git make gettext libglib2.0-bin)
+  ansible.builtin.command: which {{ item }}
+  changed_when: false
+  loop:
+    - git
+    - make
+    - msgfmt
+    - msgmerge
+    - xgettext
+    - glib-compile-schemas
+    - gnome-extensions
+
+- name: Check for an existing installed extension
+  ansible.builtin.stat:
+    path: "{{ forge_ext_dir }}"
+  register: existing_ext
+
+- name: Back up the existing installed extension (once)
+  ansible.builtin.command:
+    cmd: cp -a "{{ forge_ext_dir }}" "{{ forge_ext_dir }}.bak"
+    creates: "{{ forge_ext_dir }}.bak"
+  when: existing_ext.stat.exists
+
+- name: Clone or update the Forge source
+  ansible.builtin.git:
+    repo: "{{ forge_repo }}"
+    dest: "{{ forge_src }}"
+    version: main
+
+- name: Build Forge
+  ansible.builtin.command:
+    cmd: make build
+    chdir: "{{ forge_src }}"
+
+- name: Install Forge into the user extension directory
+  ansible.builtin.command:
+    cmd: make install
+    chdir: "{{ forge_src }}"
+
+- name: Read the installed metadata
+  ansible.builtin.slurp:
+    src: "{{ forge_ext_dir }}/metadata.json"
+  register: forge_metadata
+
+- name: Verify the installed Forge declares GNOME 50 support
+  ansible.builtin.assert:
+    that:
+      - "'50' in (forge_metadata.content | b64decode | from_json)['shell-version']"
+    fail_msg: "Installed Forge metadata does not list GNOME Shell 50"
+
+- name: Ensure the extension is enabled
+  ansible.builtin.command: gnome-extensions enable forge@jmmaranan.com
+  changed_when: false
+
+- name: Remind about the shell reload
+  ansible.builtin.debug:
+    msg: >-
+      Forge (git main, GNOME 45-50.1) installed. Log out and back in to
+      reload GNOME Shell. Rollback: rm -rf {{ forge_ext_dir }} && mv
+      {{ forge_ext_dir }}.bak {{ forge_ext_dir }} (or reinstall v89 from
+      extensions.gnome.org).

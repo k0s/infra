@@ -1,0 +1,4 @@
+---
+# links.json lives at the repo root — single source of truth shared with the
+# k0sngin-service role (K0SNGIN_LINKS reads the same file at runtime).
+links_file: "{{ playbook_dir }}/links.json"
