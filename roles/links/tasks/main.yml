@@ -16,7 +16,7 @@
 - name: Check if target exists
   ansible.builtin.stat:
     path: "{{ item.value }}"
-  register: target_checks
+  register: links_target_checks
   loop: "{{ links | dict2items }}"
 
 - name: Verify target exists before creating symlink
@@ -24,12 +24,12 @@
     that:
       - item.stat.exists
     fail_msg: "Target {{ item.item.value }} does not exist"
-  loop: "{{ target_checks.results }}"
+  loop: "{{ links_target_checks.results }}"
 
 - name: Check if source exists
   ansible.builtin.stat:
     path: "{{ item.key }}"
-  register: source_checks
+  register: links_source_checks
   loop: "{{ links | dict2items }}"
 
 - name: Verify source is a link if it exists
@@ -37,7 +37,7 @@
     that:
       - not item.stat.exists or item.stat.islnk
     fail_msg: "Source {{ item.item.key }} exists but is not a symlink"
-  loop: "{{ source_checks.results }}"
+  loop: "{{ links_source_checks.results }}"
 
 - name: Ensure all the links are populated
   ansible.builtin.file:

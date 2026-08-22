@@ -26,13 +26,13 @@
 - name: Check for an existing installed extension
   ansible.builtin.stat:
     path: "{{ forge_ext_dir }}"
-  register: existing_ext
+  register: forge_existing_ext
 
 - name: Back up the existing installed extension (once)
   ansible.builtin.command:
     cmd: cp -a "{{ forge_ext_dir }}" "{{ forge_ext_dir }}.bak"
     creates: "{{ forge_ext_dir }}.bak"
-  when: existing_ext.stat.exists
+  when: forge_existing_ext.stat.exists
 
 - name: Clone or update the Forge source
   ansible.builtin.git:
