@@ -71,6 +71,21 @@
     mode: "0644"
   become: true
 
+- name: Render the sync-dirs manifest (single source of truth for backup.sh)
+  ansible.builtin.template:
+    src: sync-dirs.txt.j2
+    dest: /etc/restic/sync-dirs.txt
+    owner: "{{ restic_user }}"
+    mode: "0644"
+  become: true
+
+- name: Install the backup wrapper script
+  ansible.builtin.copy:
+    src: backup.sh
+    dest: /etc/restic/backup.sh
+    mode: "0755"
+  become: true
+
 - name: Create the local repo directory
   ansible.builtin.file:
     path: "{{ restic_repo_dir }}"

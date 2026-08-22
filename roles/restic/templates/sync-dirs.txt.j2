@@ -1,0 +1,7 @@
+{# Rendered from restic_sync_dirs (see k0s-infra-vars.yml.example). One
+   resolved absolute path per line — read at every backup run by
+   files/backup.sh, so this is the single source of truth for what gets
+   backed up, not a second hardcoded copy in the systemd unit. #}
+{% for dir in restic_sync_dirs %}
+{{ dir }}
+{% endfor %}
