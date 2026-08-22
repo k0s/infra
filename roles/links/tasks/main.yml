@@ -1,0 +1,47 @@
+---
+# Ensure all the website content symlinks are populated.
+#
+# Migrated from clawdette's ~/web/ansible/link.yaml (2026-08-22). links_file
+# (repo-root links.json) is the single source of truth for the link list: this
+# role creates the symlinks, and k0sNgin reads the same file (K0SNGIN_LINKS,
+# see the k0sngin-service role) to allow serving through them. Flat JSON object
+# of string pairs, link location -> target; paths are explicit — absolute or
+# ~user form (both ansible path args and k0sNgin expanduser them).
+
+- name: Load the link list
+  ansible.builtin.include_vars:
+    file: "{{ links_file }}"
+    name: links
+
+- name: Check if target exists
+  ansible.builtin.stat:
+    path: "{{ item.value }}"
+  register: target_checks
+  loop: "{{ links | dict2items }}"
+
+- name: Verify target exists before creating symlink
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Target {{ item.item.value }} does not exist"
+  loop: "{{ target_checks.results }}"
+
+- name: Check if source exists
+  ansible.builtin.stat:
+    path: "{{ item.key }}"
+  register: source_checks
+  loop: "{{ links | dict2items }}"
+
+- name: Verify source is a link if it exists
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or item.stat.islnk
+    fail_msg: "Source {{ item.item.key }} exists but is not a symlink"
+  loop: "{{ source_checks.results }}"
+
+- name: Ensure all the links are populated
+  ansible.builtin.file:
+    path: "{{ item.key }}"
+    state: link
+    src: "{{ item.value }}"
+  loop: "{{ links | dict2items }}"

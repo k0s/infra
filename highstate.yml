@@ -1,0 +1,38 @@
+---
+# highstate.yml — apply the full k0s.org host configuration.
+#
+# ALWAYS review a dry run before applying anything:
+#   ansible-playbook -i localhost.ini highstate.yml --check --diff
+#
+# Then apply for real. Root actions are never unattended: every role that
+# needs `become` prompts interactively — there is no stored become secret.
+#   ansible-playbook -i localhost.ini highstate.yml --ask-become-pass
+#
+# Select a subset with --tags (e.g. a fresh box that isn't the server yet):
+#   ansible-playbook -i localhost.ini highstate.yml --tags syncthing,links --ask-become-pass
+#
+# Tags:
+#   restic          - versioned local + off-site backup (server role)
+#   forge            - GNOME tiling extension (desktop role)
+#   k0sngin_service  - k0sNgin systemd service + website hosting (server role)
+#   links            - website content symlinks (server role)
+#   syncthing        - install + enable Syncthing (any role)
+#
+# `--check` can't see through raw `command`/`shell` tasks (a few exist here —
+# forge's build steps, restic's `restic init`) or predict some
+# conditional-on-registered-result tasks. Read the task names in the diff
+# output, not just the summary counts, for those.
+
+- name: Apply full k0s.org host state
+  hosts: all
+  roles:
+    - role: restic
+      tags: [restic]
+    - role: forge
+      tags: [forge]
+    - role: k0sngin_service
+      tags: [k0sngin_service]
+    - role: links
+      tags: [links]
+    - role: syncthing
+      tags: [syncthing]

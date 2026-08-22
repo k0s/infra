@@ -1,0 +1,11 @@
+---
+restic_user: jhammel
+restic_sync_dirs:
+  - "{{ ansible_env.HOME }}/web"
+  - "{{ ansible_env.HOME }}/docs"
+  - "{{ ansible_env.HOME }}/image"
+  - "{{ ansible_env.HOME }}/movies"
+  - "{{ ansible_env.HOME }}/music"
+restic_repo_dir: /srv/restic/mesh
+restic_offsite_host: pop-os
+restic_offsite_path: "{{ ansible_env.HOME }}/restic/mesh"
