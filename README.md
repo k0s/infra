@@ -34,6 +34,20 @@ lives in the [k0sNgin](https://github.com/k0s/k0sNgin) repo's own
 project. `roles/k0sngin_service` here only wires up the *host-level* systemd
 service once the app is already installed.
 
+## Host-specific / private config
+
+Directory layout and peer hostnames aren't secrets, but they're personal
+topology data with no business sitting in a public repo permanently. Those
+values live in **`~/web/k0s-infra-vars.yml`** on the target host — untracked,
+loaded via `highstate.yml`'s `vars_files`. Copy
+[`k0s-infra-vars.yml.example`](k0s-infra-vars.yml.example) there and fill it
+in before running anything. `~/web` specifically because it's the established
+home for this kind of config already (`~/.silvermirror` → `~/web/sync.ini`
+follows the same pattern), and because `~/web` is itself synced+backed-up, so
+the file propagates to every machine in the mesh automatically. Missing the
+file fails fast with a clear undefined-variable error — verified 2026-08-22,
+intentional, not a bug.
+
 ## Usage
 
 Always dry-run first — see exactly what would change before anything does:

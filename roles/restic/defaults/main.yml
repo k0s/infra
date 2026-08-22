@@ -1,11 +1,7 @@
 ---
-restic_user: jhammel
-restic_sync_dirs:
-  - "{{ ansible_env.HOME }}/web"
-  - "{{ ansible_env.HOME }}/docs"
-  - "{{ ansible_env.HOME }}/image"
-  - "{{ ansible_env.HOME }}/movies"
-  - "{{ ansible_env.HOME }}/music"
+# Everything below is a generic technical convention, safe to be public.
+# restic_user, restic_sync_dirs, restic_offsite_host, and restic_offsite_path
+# are personal/topology data (directory layout, peer hostnames) — they come
+# from the untracked local vars file instead. See k0s-infra-vars.yml.example
+# and highstate.yml's vars_files.
 restic_repo_dir: /srv/restic/mesh
-restic_offsite_host: pop-os
-restic_offsite_path: "{{ ansible_env.HOME }}/restic/mesh"
