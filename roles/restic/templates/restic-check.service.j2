@@ -2,7 +2,7 @@
 Description=weekly restic repository integrity check
 
 [Service]
-User=jhammel
+User={{ restic_user }}
 Type=oneshot
 EnvironmentFile=/etc/restic/backup.env
 ExecStart=/usr/bin/restic check

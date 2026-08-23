@@ -15,12 +15,14 @@
 # highstate.yml's restic role will fail fast with a clear "variable is
 # undefined" error if this file is missing — that's intentional, not a bug.
 
-restic_user: CHANGEME               # the account restic runs as, e.g. jhammel
-restic_sync_dirs:                   # every directory the sync mesh manages
+restic_user: CHANGEME                # the account restic runs as
+restic_sync_dirs:                    # every directory the sync mesh manages
   - "{{ ansible_env.HOME }}/web"
   - "{{ ansible_env.HOME }}/docs"
   - "{{ ansible_env.HOME }}/image"
   - "{{ ansible_env.HOME }}/movies"
   - "{{ ansible_env.HOME }}/music"
-restic_offsite_host: CHANGEME       # hostname of the off-site backup peer
+restic_offsite_host: CHANGEME        # hostname of the off-site backup peer
 restic_offsite_path: "{{ ansible_env.HOME }}/restic/mesh"
+
+k0sngin_service_user: CHANGEME       # the account k0sNgin's systemd service runs as

@@ -9,7 +9,7 @@ Group={{ k0sngin_service_user }}
 Environment="K0SNGIN_TOP_LEVEL={{ k0sngin_service_top_level }}"
 Environment="K0SNGIN_PRODUCTION=true"
 Environment="K0SNGIN_RATE_LIMIT=600"
-Environment="K0SNGIN_LINKS={{ k0sngin_service_infra_repo_path }}/links.json"
+Environment="K0SNGIN_LINKS={{ ansible_env.HOME }}/web/links.json"
 ExecStart={{ k0sngin_service_venv }}/bin/uvicorn k0sngin.main:app --reload
 Restart=on-failure
 RestartSec=5s
