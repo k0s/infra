@@ -1,6 +1,6 @@
 ---
-k0sngin_service_top_level: "{{ ansible_env.HOME }}/web/site"
-k0sngin_service_venv: "{{ ansible_env.HOME }}/src/k0sNgin/.venv"
+k0sngin_service_top_level: "{{ ansible_facts.env.HOME }}/web/site"
+k0sngin_service_venv: "{{ ansible_facts.env.HOME }}/src/k0sNgin/.venv"
 # k0sngin_service_user is deliberately NOT defaulted here — it comes from
 # ~/web/k0s-infra-vars.yml (see k0s-infra-vars.yml.example). It's host
 # account data, not generic logic; the role fails fast if it's missing.
