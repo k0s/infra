@@ -1,4 +1,4 @@
 ---
 syncthing_folders:
-  - "{{ ansible_env.HOME }}/movies"
-  - "{{ ansible_env.HOME }}/projects"
+  - "{{ ansible_facts.env.HOME }}/movies"
+  - "{{ ansible_facts.env.HOME }}/projects"

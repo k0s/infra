@@ -23,6 +23,15 @@
 # conditional-on-registered-result tasks. Read the task names in the diff
 # output, not just the summary counts, for those.
 #
+# `--check` also can't chain a hypothetical change into a later task's real
+# system query: on a from-scratch dry run, syncthing's "install the package"
+# step reports (hypothetical) changed, but the *next* task really queries
+# systemd for the package's syncthing@.service unit — which genuinely
+# doesn't exist yet, since check mode never actually installed anything.
+# That surfaces as a real ERROR on a totally clean first dry run (confirmed
+# 2026-08-23) even though a real (non-check) apply installs the package
+# first and then succeeds. Don't be alarmed by it on a brand-new host.
+#
 # Personal/topology values (directory layout, peer hostnames) are NOT tracked
 # in this public repo — they're read from ~/web/k0s-infra-vars.yml on the
 # target host. Copy k0s-infra-vars.yml.example there and fill it in before
@@ -31,8 +40,15 @@
 
 - name: Apply full k0s.org host state
   hosts: all
+  # NOTE: uses lookup('env', 'HOME'), not ansible_facts.env.HOME like
+  # everywhere else in this repo, deliberately — vars_files paths are
+  # resolved before "Gathering Facts" runs, so a fact isn't available yet
+  # at this exact point. lookup('env', ...) reads the control node's own
+  # environment immediately, with no such ordering dependency. Found
+  # 2026-08-23 via a real [WARNING]: skipping vars_file item due to an
+  # undefined variable on the first real run.
   vars_files:
-    - "{{ ansible_env.HOME }}/web/k0s-infra-vars.yml"
+    - "{{ lookup('env', 'HOME') }}/web/k0s-infra-vars.yml"
   roles:
     - role: restic
       tags: [restic]

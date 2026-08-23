@@ -58,7 +58,7 @@
 
 - name: Enable and start the per-user Syncthing service
   ansible.builtin.systemd_service:
-    name: "syncthing@{{ ansible_user_id }}.service"
+    name: "syncthing@{{ ansible_facts.user_id }}.service"
     enabled: true
     state: started
   become: true
@@ -66,6 +66,6 @@
 - name: Remind about the manual pairing step
   ansible.builtin.debug:
     msg: >-
-      Syncthing is installed and running for {{ ansible_user_id }}
+      Syncthing is installed and running for {{ ansible_facts.user_id }}
       (GUI at http://127.0.0.1:8384). Device pairing and folder sharing are
       not automated — see roles/syncthing/README.md.

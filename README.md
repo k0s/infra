@@ -93,6 +93,14 @@ tasks (forge's build steps, restic's `restic init`) or reliably predict some
 conditional-on-registered-result tasks. Read the task names in the diff
 output, not just the pass/fail summary, for those.
 
+It also can't chain a hypothetical change forward: on a from-scratch dry run,
+`syncthing`'s package-install step reports a *hypothetical* change, but the
+very next task really queries systemd for that package's `syncthing@.service`
+unit — which genuinely doesn't exist yet, since nothing was actually
+installed. That surfaces as a real `ERROR` on a clean first dry run (confirmed
+2026-08-23), even though a real apply installs the package first and then
+succeeds normally. Not a bug — a dry-run-of-a-fresh-install limitation.
+
 ## Rollback / restore
 
 No role in here does anything destructive by default (restic backups

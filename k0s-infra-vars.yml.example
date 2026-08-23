@@ -17,16 +17,16 @@
 
 restic_user: CHANGEME                # the account restic runs as
 restic_sync_dirs:                    # every directory the sync mesh manages
-  - "{{ ansible_env.HOME }}/web"
-  - "{{ ansible_env.HOME }}/docs"
-  - "{{ ansible_env.HOME }}/image"
-  - "{{ ansible_env.HOME }}/movies"
-  - "{{ ansible_env.HOME }}/music"
+  - "{{ ansible_facts.env.HOME }}/web"
+  - "{{ ansible_facts.env.HOME }}/docs"
+  - "{{ ansible_facts.env.HOME }}/image"
+  - "{{ ansible_facts.env.HOME }}/movies"
+  - "{{ ansible_facts.env.HOME }}/music"
 restic_offsite_host: CHANGEME        # hostname of the off-site backup peer
-restic_offsite_path: "{{ ansible_env.HOME }}/restic/mesh"
+restic_offsite_path: "{{ ansible_facts.env.HOME }}/restic/mesh"
 
 k0sngin_service_user: CHANGEME       # the account k0sNgin's systemd service runs as
 
 # Shared between the links and k0sngin_service roles (K0SNGIN_LINKS reads the
 # same file at runtime) — one variable, not a path duplicated in two places.
-links_file: "{{ ansible_env.HOME }}/web/links.json"
+links_file: "{{ ansible_facts.env.HOME }}/web/links.json"
