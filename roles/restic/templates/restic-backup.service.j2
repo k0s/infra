@@ -2,7 +2,7 @@
 Description=restic backup of unison-synced directories (mesh tag)
 
 [Service]
-User=jhammel
+User={{ restic_user }}
 Type=oneshot
 EnvironmentFile=/etc/restic/backup.env
 ExecStart=/etc/restic/backup.sh

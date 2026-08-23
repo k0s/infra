@@ -1,7 +1,6 @@
 ---
-k0sngin_service_user: jhammel
 k0sngin_service_top_level: "{{ ansible_env.HOME }}/web/site"
 k0sngin_service_venv: "{{ ansible_env.HOME }}/src/k0sNgin/.venv"
-# Where this repo (k0s/infra) is cloned on the host — links.json lives at its
-# root and is the single source of truth shared with the `links` role.
-k0sngin_service_infra_repo_path: "{{ ansible_env.HOME }}/src/infra"
+# k0sngin_service_user is deliberately NOT defaulted here — it comes from
+# ~/web/k0s-infra-vars.yml (see k0s-infra-vars.yml.example). It's host
+# account data, not generic logic; the role fails fast if it's missing.

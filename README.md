@@ -14,11 +14,11 @@ this fits with dotfiles (`k0s/config`) and sync/backup.
 ## Layout
 
 ```
-highstate.yml       # applies everything — the single entry point
-inventory.ini       # remote/server host(s)
-localhost.ini        # ansible_connection=local, for running against the box itself
-links.json           # single source of truth for website content symlinks —
-                      # read by both roles/links and the live k0sNgin service
+highstate.yml            # applies everything — the single entry point
+inventory.ini             # remote/server host(s)
+localhost.ini              # ansible_connection=local, for running against the box itself
+k0s-infra-vars.yml.example # template for the untracked ~/web/k0s-infra-vars.yml
+links.json.example         # template for the untracked ~/web/links.json
 roles/
   restic/             # versioned local + off-site backup (server role)
   forge/               # GNOME tiling extension (desktop role)
@@ -36,17 +36,33 @@ service once the app is already installed.
 
 ## Host-specific / private config
 
-Directory layout and peer hostnames aren't secrets, but they're personal
-topology data with no business sitting in a public repo permanently. Those
-values live in **`~/web/k0s-infra-vars.yml`** on the target host — untracked,
-loaded via `highstate.yml`'s `vars_files`. Copy
-[`k0s-infra-vars.yml.example`](k0s-infra-vars.yml.example) there and fill it
-in before running anything. `~/web` specifically because it's the established
-home for this kind of config already (`~/.silvermirror` → `~/web/sync.ini`
-follows the same pattern), and because `~/web` is itself synced+backed-up, so
-the file propagates to every machine in the mesh automatically. Missing the
-file fails fast with a clear undefined-variable error — verified 2026-08-22,
-intentional, not a bug.
+Directory layout, peer hostnames, and account names aren't secrets, but
+they're personal/topology data with no business sitting in a public repo
+permanently. Two untracked files on the target host hold that data:
+
+- **`~/web/k0s-infra-vars.yml`** — role variables (`restic_user`,
+  `restic_sync_dirs`, `restic_offsite_host`, `restic_offsite_path`,
+  `k0sngin_service_user`), loaded via `highstate.yml`'s `vars_files`. Copy
+  [`k0s-infra-vars.yml.example`](k0s-infra-vars.yml.example) there and fill it
+  in first.
+- **`~/web/links.json`** — the real website content-symlink mappings (real
+  paths under your `$HOME`), read by both `roles/links` and the live k0sNgin
+  service (`K0SNGIN_LINKS`). Copy [`links.json.example`](links.json.example)
+  there and fill it in.
+
+`~/web` specifically because it's the established home for this kind of
+config already (`~/.silvermirror` → `~/web/sync.ini` follows the same
+pattern), and because `~/web` is itself synced+backed-up, so both files
+propagate to every machine in the mesh automatically. Missing either file
+fails fast with a clear undefined-variable error — verified 2026-08-22 for
+`k0s-infra-vars.yml`, intentional, not a bug.
+
+**Audited 2026-08-22** for any remaining hardcoded personal paths/usernames
+(`grep -rn "/home/jhammel\|jhammel"`, repo-wide) after this pattern was
+introduced — `User=jhammel` in the three `restic-*.service` files and
+`k0sngin_service_user: jhammel` in a role default were the last holdouts,
+now fixed (templated / externalized). Re-run that grep after adding new
+roles; it's cheap and catches this class of leak early.
 
 ## Usage
 

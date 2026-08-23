@@ -1,0 +1,10 @@
+[Unit]
+Description=mirror restic repo to {{ restic_offsite_host }} off-site copy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ restic_user }}
+EnvironmentFile=/etc/restic/offsite.env
+ExecStart=/usr/bin/restic copy --from-repo {{ restic_repo_dir }} --from-password-file /etc/restic/repo.pass
