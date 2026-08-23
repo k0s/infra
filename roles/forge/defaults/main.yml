@@ -2,3 +2,13 @@
 forge_repo: https://github.com/forge-ext/forge
 forge_src: "{{ ansible_facts.env.HOME }}/src/forge"
 forge_ext_dir: "{{ ansible_facts.env.HOME }}/.local/share/gnome-shell/extensions/forge@jmmaranan.com"
+# "main", deliberately not pinned: no tagged release supports GNOME 50 at all
+# (v49-89, the latest, tops out at Shell 49 — confirmed 2026-08-23), and the
+# upstream README itself says Forge "is looking for a new owner or
+# maintainer" (github.com/orgs/forge-ext/discussions/276,
+# forge-ext/forge#336) — its future is unsettled enough that pinning to a
+# snapshot wouldn't buy real stability. Tracking main means picking up
+# whatever the community (or a new maintainer, or a migration) does next.
+# The recurring po/*.po dirt this causes is handled structurally below
+# (force: yes on the clone/update task), not by avoiding the moving target.
+forge_version: main

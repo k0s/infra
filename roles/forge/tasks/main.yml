@@ -10,6 +10,15 @@
 # Deliberately does NOT run Forge's `make all` — its `restart` target logs you
 # out on Wayland. After a run, log out/in manually to reload the shell.
 # Rollback: restore the .bak dir created below, or reinstall v89 from e.g.o.
+#
+# forge_version tracks "main" deliberately, not a pin (see defaults for why).
+# `make build` regenerates po/forge.pot from source and runs `msgmerge -U` on
+# every po/*.po file (confirmed 2026-08-23 — idempotent once in sync with the
+# current source, but any new upstream commit re-dirties them). Since main is
+# a moving target by design here, the clone/update task below uses `force`
+# rather than trying to avoid the dirt: po/*.po is the *only* thing this
+# build process ever touches in this checkout, so discarding local
+# modifications before every checkout is safe, not just convenient.
 
 - name: Check build tools are present (apt packages git make gettext libglib2.0-bin)
   ansible.builtin.command: which {{ item }}
@@ -38,7 +47,12 @@
   ansible.builtin.git:
     repo: "{{ forge_repo }}"
     dest: "{{ forge_src }}"
-    version: main
+    version: "{{ forge_version }}"
+    # po/*.po is the only thing `make build` ever touches in this checkout
+    # (confirmed 2026-08-23 via git diff --stat after a real build) — safe
+    # to always discard rather than let it block every future run.
+    force: true
+  register: forge_git
 
 - name: Build Forge
   ansible.builtin.command:
@@ -68,7 +82,7 @@
 - name: Remind about the shell reload
   ansible.builtin.debug:
     msg: >-
-      Forge (git main, GNOME 45-50.1) installed. Log out and back in to
+      Forge ({{ forge_git.after | default(forge_version) }}, GNOME 45-50.1) installed. Log out and back in to
       reload GNOME Shell. Rollback: rm -rf {{ forge_ext_dir }} && mv
       {{ forge_ext_dir }}.bak {{ forge_ext_dir }} (or reinstall v89 from
       extensions.gnome.org).
