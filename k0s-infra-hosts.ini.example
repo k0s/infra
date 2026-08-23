@@ -1,0 +1,15 @@
+# Template for the untracked internal-only inventory this repo reads on
+# demand. Copy to ~/web/k0s-infra-hosts.ini and fill in real hostnames.
+#
+# Why this exists separately from inventory.ini: inventory.ini's k0s.org is
+# already a public domain name, safe to track. Other real machines (an
+# off-site backup peer, a home LAN box) are internal topology — the same
+# class of personal data k0s-infra-vars.yml already externalizes, not
+# something to bake into a public repo just because it's inventory syntax
+# instead of a role variable.
+#
+# Usage: pass alongside inventory.ini, don't replace it —
+#   ansible-playbook -i inventory.ini -i ~/web/k0s-infra-hosts.ini highstate.yml \
+#     --limit <hostname> --tags syncthing --check --diff
+
+CHANGEME

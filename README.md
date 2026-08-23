@@ -19,6 +19,7 @@ inventory.ini             # remote/server host(s)
 localhost.ini              # ansible_connection=local, for running against the box itself
 k0s-infra-vars.yml.example # template for the untracked ~/web/k0s-infra-vars.yml
 links.json.example         # template for the untracked ~/web/links.json
+k0s-infra-hosts.ini.example # template for the untracked ~/web/k0s-infra-hosts.ini
 roles/
   restic/             # versioned local + off-site backup (server role)
   forge/               # GNOME tiling extension (desktop role)
@@ -38,7 +39,7 @@ service once the app is already installed.
 
 Directory layout, peer hostnames, and account names aren't secrets, but
 they're personal/topology data with no business sitting in a public repo
-permanently. Two untracked files on the target host hold that data:
+permanently. Three untracked files on the control host hold that data:
 
 - **`~/web/k0s-infra-vars.yml`** — role variables (`restic_user`,
   `restic_sync_dirs`, `restic_offsite_host`, `restic_offsite_path`,
@@ -51,13 +52,24 @@ permanently. Two untracked files on the target host hold that data:
   `roles/links` and the live k0sNgin service (`K0SNGIN_LINKS`) — one variable,
   not a path duplicated in two places. Copy
   [`links.json.example`](links.json.example) there and fill it in.
+- **`~/web/k0s-infra-hosts.ini`** — real internal hostnames (an off-site
+  backup peer, other LAN machines), passed as a second `-i` alongside
+  `inventory.ini` rather than folded into it. `inventory.ini`'s `k0s.org` is
+  already a public domain name and stays tracked; internal topology doesn't,
+  even though it's just inventory syntax rather than a role variable. Copy
+  [`k0s-infra-hosts.ini.example`](k0s-infra-hosts.ini.example) there and fill
+  it in. Usage:
+  `ansible-playbook -i inventory.ini -i ~/web/k0s-infra-hosts.ini highstate.yml --limit <host> ...`
 
 `~/web` specifically because it's the established home for this kind of
 config already (`~/.silvermirror` → `~/web/sync.ini` follows the same
-pattern), and because `~/web` is itself synced+backed-up, so both files
-propagate to every machine in the mesh automatically. Missing either file
+pattern), and because `~/web` is itself synced+backed-up, so all three files
+propagate to every machine in the mesh automatically. Missing a vars file
 fails fast with a clear undefined-variable error — verified 2026-08-22 for
-`k0s-infra-vars.yml`, intentional, not a bug.
+`k0s-infra-vars.yml`, intentional, not a bug. The hosts file (added
+2026-08-23, first needed when targeting `pop-os`) is additive instead —
+omit `-i ~/web/k0s-infra-hosts.ini` and you simply can't `--limit` to a host
+it names, no error.
 
 **Audited 2026-08-22** for any remaining hardcoded personal paths/usernames
 (`grep -rn "/home/jhammel\|jhammel"`, repo-wide) after this pattern was
