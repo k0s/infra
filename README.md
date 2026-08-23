@@ -42,13 +42,15 @@ permanently. Two untracked files on the target host hold that data:
 
 - **`~/web/k0s-infra-vars.yml`** — role variables (`restic_user`,
   `restic_sync_dirs`, `restic_offsite_host`, `restic_offsite_path`,
-  `k0sngin_service_user`), loaded via `highstate.yml`'s `vars_files`. Copy
-  [`k0s-infra-vars.yml.example`](k0s-infra-vars.yml.example) there and fill it
-  in first.
-- **`~/web/links.json`** — the real website content-symlink mappings (real
-  paths under your `$HOME`), read by both `roles/links` and the live k0sNgin
-  service (`K0SNGIN_LINKS`). Copy [`links.json.example`](links.json.example)
-  there and fill it in.
+  `k0sngin_service_user`, `links_file`), loaded via `highstate.yml`'s
+  `vars_files`. Copy [`k0s-infra-vars.yml.example`](k0s-infra-vars.yml.example)
+  there and fill it in first. None of these have role defaults — missing the
+  file fails fast rather than silently running with a wrong value.
+- **`~/web/links.json`** (path given by `links_file` above) — the real website
+  content-symlink mappings (real paths under your `$HOME`), read by both
+  `roles/links` and the live k0sNgin service (`K0SNGIN_LINKS`) — one variable,
+  not a path duplicated in two places. Copy
+  [`links.json.example`](links.json.example) there and fill it in.
 
 `~/web` specifically because it's the established home for this kind of
 config already (`~/.silvermirror` → `~/web/sync.ini` follows the same

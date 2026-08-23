@@ -26,3 +26,7 @@ restic_offsite_host: CHANGEME        # hostname of the off-site backup peer
 restic_offsite_path: "{{ ansible_env.HOME }}/restic/mesh"
 
 k0sngin_service_user: CHANGEME       # the account k0sNgin's systemd service runs as
+
+# Shared between the links and k0sngin_service roles (K0SNGIN_LINKS reads the
+# same file at runtime) — one variable, not a path duplicated in two places.
+links_file: "{{ ansible_env.HOME }}/web/links.json"

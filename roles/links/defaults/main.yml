@@ -1,6 +1,0 @@
----
-# ~/web/links.json is the single source of truth, shared with the
-# k0sngin_service role (K0SNGIN_LINKS reads the same file at runtime).
-# Untracked deliberately — real personal path data, not generic logic. See
-# links.json.example and README.md ("Host-specific / private config").
-links_file: "{{ ansible_env.HOME }}/web/links.json"
