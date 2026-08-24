@@ -1,12 +1,17 @@
 ---
-# Install Syncthing and prepare it to manage the folders in syncthing_folders
-# (default: ~/movies, ~/projects — the pilot folders, see
+# Install Syncthing, prepare the folders in syncthing_folders, and share them
+# with every other host in the syncthing_mesh inventory group (see
 # clawdette operations/syncthing-pilot.md and roles/syncthing/README.md).
 #
-# What this does NOT do: pair devices or share folders. Device trust is a
-# one-time, two-party, interactive exchange (device IDs, mutual "add device"
-# confirmation) — not something to script blind the first time a mesh forms.
-# See roles/syncthing/README.md for that manual step.
+# What this does NOT do: pair devices. Device trust is a one-time, two-party,
+# interactive exchange (device IDs, mutual "add device" confirmation) — not
+# something to script blind the first time a mesh forms. See
+# roles/syncthing/README.md for that manual step. Folder *sharing* (this
+# file) only works between devices that are already paired.
+#
+# Requires running against the WHOLE syncthing_mesh group in one invocation,
+# not --limit to a single host — folder-sharing needs every member's Device
+# ID via hostvars, which only get populated for hosts this exact run touches.
 #
 # NOTE: verify the signing-key URL and repo details against
 # https://apt.syncthing.net/ at deploy time — apt-repo setup instructions can
@@ -51,7 +56,7 @@
 
 - name: Ensure managed folders exist
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ ansible_facts.env.HOME }}/{{ item }}"
     state: directory
     mode: "0755"
   loop: "{{ syncthing_folders }}"
@@ -63,9 +68,88 @@
     state: started
   become: true
 
+# Everything from here down talks to the local Syncthing REST API, which
+# ansible.builtin.uri (even plain GETs) and the API-key command both skip
+# under --check — same blind spot as restic's `restic init`, just a
+# different flavor. Guarded as a block rather than piecemeal: none of this
+# is meaningfully previewable in a dry run anyway.
+- name: Read the local Syncthing API key
+  ansible.builtin.command: >-
+    grep -oP '(?<=<apikey>)[^<]+'
+    {{ ansible_facts.env.HOME }}/.local/state/syncthing/config.xml
+  register: syncthing_apikey_result
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Set the API key fact
+  ansible.builtin.set_fact:
+    syncthing_apikey: "{{ syncthing_apikey_result.stdout }}"
+  when: not ansible_check_mode
+
+- name: Query this host's Syncthing device ID
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8384/rest/system/status
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    return_content: true
+  register: syncthing_status
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Set the device ID fact (published via hostvars for peers to read)
+  ansible.builtin.set_fact:
+    syncthing_device_id: "{{ syncthing_status.json.myID }}"
+  when: not ansible_check_mode
+
+- name: Determine this mesh's other members
+  ansible.builtin.set_fact:
+    syncthing_peer_hosts: "{{ groups.get('syncthing_mesh', []) | difference([inventory_hostname]) }}"
+  when: not ansible_check_mode
+
+- name: Verify peer device IDs are known
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].syncthing_device_id is defined
+    fail_msg: >-
+      {{ item }}'s Syncthing device ID isn't known — this requires running
+      highstate.yml against the whole syncthing_mesh group in one invocation,
+      not --limit to a single host, so device IDs cross-share via hostvars.
+  loop: "{{ syncthing_peer_hosts | default([]) }}"
+  when:
+    - not ansible_check_mode
+    - syncthing_peer_hosts | default([]) | length > 0
+
+- name: Build the peer device list for folder sharing
+  ansible.builtin.set_fact:
+    syncthing_peer_devices: "{{ (syncthing_peer_devices | default([])) + [{'deviceID': hostvars[item].syncthing_device_id}] }}"
+  loop: "{{ syncthing_peer_hosts | default([]) }}"
+  when:
+    - not ansible_check_mode
+    - syncthing_peer_hosts | default([]) | length > 0
+
+- name: Share folders with every other mesh member
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8384/rest/config/folders/{{ item }}"
+    method: PUT
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    body_format: json
+    body:
+      id: "{{ item }}"
+      label: "{{ item }}"
+      path: "{{ ansible_facts.env.HOME }}/{{ item }}"
+      type: sendreceive
+      devices: "{{ syncthing_peer_devices | default([]) }}"
+    status_code: [200, 201]
+  loop: "{{ syncthing_folders }}"
+  when:
+    - not ansible_check_mode
+    - syncthing_peer_hosts | default([]) | length > 0
+
 - name: Remind about the manual pairing step
   ansible.builtin.debug:
     msg: >-
       Syncthing is installed and running for {{ ansible_facts.user_id }}
-      (GUI at http://127.0.0.1:8384). Device pairing and folder sharing are
-      not automated — see roles/syncthing/README.md.
+      (GUI at http://127.0.0.1:8384). Folder sharing with syncthing_mesh
+      peers is automated; device pairing (the initial trust exchange)
+      is not — see roles/syncthing/README.md.

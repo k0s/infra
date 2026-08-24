@@ -13,3 +13,11 @@
 #     --limit <hostname> --tags syncthing --check --diff
 
 CHANGEME
+
+# roles/syncthing shares folders between every host in this group (cross-host
+# Device ID lookup via hostvars) — run highstate.yml against the whole group
+# in one invocation, not --limit to a single member, or folder-sharing fails
+# with a clear error instead of silently doing nothing.
+[syncthing_mesh]
+localhost
+CHANGEME

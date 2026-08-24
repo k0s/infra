@@ -100,6 +100,15 @@ backup/hosting server):
 ansible-playbook -i localhost.ini highstate.yml --tags syncthing,links --ask-become-pass
 ```
 
+`syncthing` specifically also shares folders with every other host in the
+`syncthing_mesh` inventory group (see `k0s-infra-hosts.ini.example`) — run it
+against the whole group in one invocation, not `--limit` to a single host:
+
+```sh
+ansible-playbook -i inventory.ini -i ~/web/k0s-infra-hosts.ini highstate.yml \
+  --limit syncthing_mesh --tags syncthing --ask-become-pass
+```
+
 **`--check` has real blind spots** — it can't see through raw `command`/`shell`
 tasks (forge's build steps, restic's `restic init`) or reliably predict some
 conditional-on-registered-result tasks. Read the task names in the diff
