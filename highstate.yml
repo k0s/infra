@@ -16,7 +16,15 @@
 #   forge            - GNOME tiling extension (desktop role)
 #   k0sngin_service  - k0sNgin systemd service + website hosting (server role)
 #   links            - website content symlinks (server role)
-#   syncthing        - install + enable Syncthing (any role)
+#   syncthing        - install, enable, and share folders (any role) — see
+#                      Caveat below on running against the whole mesh
+#
+# syncthing shares folders with every other host in the syncthing_mesh
+# inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
+# hostvars — run against the whole group in one invocation, not --limit to a
+# single host, e.g.:
+#   ansible-playbook -i inventory.ini -i ~/web/k0s-infra-hosts.ini highstate.yml \
+#     --limit syncthing_mesh --tags syncthing --ask-become-pass
 #
 # `--check` can't see through raw `command`/`shell` tasks (a few exist here —
 # forge's build steps, restic's `restic init`) or predict some

@@ -1,4 +1,7 @@
 ---
+# Folder IDs, not full paths — Syncthing folder IDs must match exactly across
+# every device sharing them; the local path is always {{ HOME }}/<id> here,
+# the same convention on every host in the mesh.
 syncthing_folders:
-  - "{{ ansible_facts.env.HOME }}/movies"
-  - "{{ ansible_facts.env.HOME }}/projects"
+  - movies
+  - projects
