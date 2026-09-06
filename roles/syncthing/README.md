@@ -10,6 +10,44 @@ to `state: idle`, `needFiles: 0`).
 It does **not** pair devices — that's a one-time, interactive, two-party trust
 exchange, not something to script blind the first time a mesh forms.
 
+## Folder type (`syncthing_folder_type`)
+
+Syncthing's folder `type` is a **per-device** property: the same folder is
+legitimately `sendreceive` on one machine and `receiveonly` on another. This role
+defaults to `sendreceive`, which is what it hardcoded previously.
+
+```yaml
+syncthing_folder_type: receiveonly      # every folder on this host
+syncthing_folder_types:                 # optional per-folder override
+  web: receiveonly
+```
+
+Valid values: `sendreceive`, `sendonly`, `receiveonly`. Anything else fails the
+play with a clear message rather than PUTting a bad folder config.
+
+**Why this is worth having: Syncthing propagates deletions.** A machine that is
+still being evaluated — new hardware, a rebuild, a box you might wipe — can
+delete data on every peer if its configuration is wrong. `receiveonly` accepts
+changes and never sends its own, which makes such a machine safe to add to the
+mesh before you trust it.
+
+Note that setting this by hand in the Syncthing GUI does **not** hold: this role
+PUTs folder config over the REST API, so the next run reverts it. That is
+precisely why it belongs here as a variable.
+
+### It is per host, so it goes in the inventory
+
+This is the first genuinely per-host value in this repo — the untracked
+`k0s-infra-vars.yml` is loaded at play level and shared by every host, so it is
+the wrong place. Use the inventory instead:
+
+```ini
+[syncthing_mesh]
+puffin
+pop-os
+newbox   syncthing_folder_type=receiveonly
+```
+
 ## One-time manual step: pairing (do once, per device pair)
 
 1. On each machine, open the Syncthing GUI: http://127.0.0.1:8384
