@@ -41,10 +41,18 @@
 # first and then succeeds. Don't be alarmed by it on a brand-new host.
 #
 # Personal/topology values (directory layout, peer hostnames) are NOT tracked
-# in this public repo — they're read from ~/web/k0s-infra-vars.yml on the
-# target host. Copy k0s-infra-vars.yml.example there and fill it in before
-# running this. Missing the file fails fast with a clear undefined-variable
-# error, which is intentional.
+# in this public repo. By default they're read from ~/web/k0s-infra-vars.yml on
+# the target host; copy k0s-infra-vars.yml.example there and fill it in.
+#
+# Keep them anywhere you like by overriding the path:
+#   ansible-playbook ... -e k0s_infra_vars_file=$HOME/private/k0s-infra-vars.yml
+# or by passing the file directly, which also works:
+#   ansible-playbook ... -e @$HOME/private/k0s-infra-vars.yml
+# Use $HOME, not ~ — the shell does not expand a tilde after '@'.
+#
+# A vars_files entry that does not exist is silently skipped, so the failure
+# you actually see is an undefined-variable error from the first role that
+# needs one. That fail-fast is intentional.
 
 - name: Apply full k0s.org host state
   hosts: all
@@ -56,7 +64,7 @@
   # 2026-08-23 via a real [WARNING]: skipping vars_file item due to an
   # undefined variable on the first real run.
   vars_files:
-    - "{{ lookup('env', 'HOME') }}/web/k0s-infra-vars.yml"
+    - "{{ k0s_infra_vars_file | default(lookup('env', 'HOME') + '/web/k0s-infra-vars.yml', true) }}"
   roles:
     - role: restic
       tags: [restic]
