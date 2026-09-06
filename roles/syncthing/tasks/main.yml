@@ -54,6 +54,19 @@
     state: present
   become: true
 
+- name: Validate the requested Syncthing folder types
+  ansible.builtin.assert:
+    that:
+      - _syncthing_requested_types | difference(syncthing_folder_types_valid) | length == 0
+    fail_msg: >-
+      Invalid Syncthing folder type(s):
+      {{ _syncthing_requested_types | difference(syncthing_folder_types_valid) | join(', ') }}.
+      Valid values are {{ syncthing_folder_types_valid | join(', ') }}.
+    quiet: true
+  vars:
+    _syncthing_requested_types: >-
+      {{ ([syncthing_folder_type] + (syncthing_folder_types.values() | list)) | unique }}
+
 - name: Ensure managed folders exist
   ansible.builtin.file:
     path: "{{ ansible_facts.env.HOME }}/{{ item }}"
@@ -138,7 +151,7 @@
       id: "{{ item }}"
       label: "{{ item }}"
       path: "{{ ansible_facts.env.HOME }}/{{ item }}"
-      type: sendreceive
+      type: "{{ syncthing_folder_types[item] | default(syncthing_folder_type) }}"
       devices: "{{ syncthing_peer_devices | default([]) }}"
     status_code: [200, 201]
   loop: "{{ syncthing_folders }}"

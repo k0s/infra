@@ -5,3 +5,20 @@
 syncthing_folders:
   - movies
   - projects
+
+# Folder type for this host. Syncthing's type is a *per-device* property: the
+# same folder is legitimately sendreceive on one machine and receiveonly on
+# another, so this is set per host, not per folder-globally. Default preserves
+# the behaviour this role had when type was hardcoded.
+#
+# receiveonly is the safe setting for a machine you are still evaluating:
+# Syncthing propagates deletions, so a misconfigured sendreceive host can
+# delete data on every peer. A receiveonly host accepts changes and never
+# sends its own.
+syncthing_folder_type: sendreceive
+
+# Optional per-folder override on this host, for the case where one folder
+# needs a different type from the rest:
+#   syncthing_folder_types:
+#     web: receiveonly
+syncthing_folder_types: {}

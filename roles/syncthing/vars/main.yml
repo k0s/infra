@@ -1,0 +1,6 @@
+---
+# Not meant to be overridden — the set Syncthing itself accepts.
+syncthing_folder_types_valid:
+  - sendreceive
+  - sendonly
+  - receiveonly
