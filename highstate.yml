@@ -12,6 +12,7 @@
 #   ansible-playbook -i localhost.ini highstate.yml --tags syncthing,links --ask-become-pass
 #
 # Tags:
+#   base             - packages every machine has (any role)
 #   restic          - versioned local + off-site backup (server role)
 #   forge            - GNOME tiling extension (desktop role)
 #   k0sngin_service  - k0sNgin systemd service + website hosting (server role)
@@ -66,6 +67,8 @@
   vars_files:
     - "{{ k0s_infra_vars_file | default(lookup('env', 'HOME') + '/web/k0s-infra-vars.yml', true) }}"
   roles:
+    - role: base
+      tags: [base]
     - role: restic
       tags: [restic]
     - role: forge
