@@ -1,0 +1,139 @@
+---
+# Put an SSH server in the initramfs so an encrypted root can be unlocked from
+# another machine instead of at the console.
+#
+# The problem it solves: full-disk encryption unlocks before the network stack,
+# sshd, or any desktop exists. A machine waiting at that prompt is fully powered
+# and completely unreachable, and its only channel is a display that may not
+# work -- so a display fault becomes a boot failure, and the machine cannot
+# return by itself after a power cut. See clawdette
+# operations/runbooks/host-not-booting-not-on-network.md.
+#
+# READ THIS BEFORE APPLYING. This role rewrites the initramfs of a machine whose
+# root filesystem is encrypted. A broken initramfs on such a host is a machine
+# that will not boot AND cannot be unlocked -- recoverable only from install
+# media. Two consequences worth honouring:
+#
+#   1. Apply it while you still have a display that works on the host, and
+#      reboot once, with that display attached, to confirm the machine still
+#      comes up. Do not treat remote unlock as available until you have used it.
+#   2. GRUB keeps previous kernel entries under "Advanced options", each with
+#      its own initramfs -- that is the practical fallback if a regenerated one
+#      is bad.
+#
+# Idempotent: the package install, the key file, and the config file all settle
+# after the first run, and update-initramfs fires only on real change.
+
+- name: Read crypttab to confirm there is anything to unlock
+  ansible.builtin.slurp:
+    src: /etc/crypttab
+  register: remote_unlock_crypttab
+  failed_when: false
+  become: true
+
+- name: Fail if no encrypted volume is configured
+  ansible.builtin.fail:
+    msg: >-
+      /etc/crypttab lists no encrypted volumes, so there is no passphrase prompt
+      to answer and this role would rewrite the initramfs for nothing. Skip it
+      with --skip-tags remote_unlock.
+  when: >-
+    remote_unlock_crypttab.content is not defined
+    or (remote_unlock_crypttab.content | b64decode).splitlines()
+       | reject('match', '^\s*(#|$)') | list | length == 0
+
+# Resolved before installing anything: a dropbear that trusts no key is strictly
+# worse than no dropbear -- the initramfs is rewritten and nothing can unlock it.
+- name: Read the keys already trusted for normal SSH
+  ansible.builtin.slurp:
+    src: "{{ remote_unlock_source_authorized_keys }}"
+  register: remote_unlock_existing_keys
+  failed_when: false
+  when: remote_unlock_authorized_keys is not defined
+
+- name: Settle which keys may unlock this host
+  ansible.builtin.set_fact:
+    remote_unlock_keys: >-
+      {{ remote_unlock_authorized_keys
+         if remote_unlock_authorized_keys is defined
+         else (remote_unlock_existing_keys.content | default('') | b64decode) }}
+
+- name: Fail if no key would be able to unlock
+  ansible.builtin.fail:
+    msg: >-
+      No public key found. {{ remote_unlock_source_authorized_keys }} is absent
+      or empty and remote_unlock_authorized_keys was not set. Installing
+      dropbear now would rewrite the initramfs and still leave nothing able to
+      unlock this host. Set remote_unlock_authorized_keys and re-run.
+  when: remote_unlock_keys | trim | length == 0
+
+- name: Install dropbear-initramfs
+  ansible.builtin.apt:
+    name: dropbear-initramfs
+    state: present
+  become: true
+  notify: Update initramfs
+
+# Ubuntu moved this from /etc/dropbear-initramfs to /etc/dropbear/initramfs.
+# Detect rather than assume, so the role works across releases.
+- name: Locate the dropbear initramfs config directory
+  ansible.builtin.stat:
+    path: /etc/dropbear/initramfs
+  register: remote_unlock_confdir_new
+  become: true
+
+- name: Settle the config directory
+  ansible.builtin.set_fact:
+    remote_unlock_confdir: >-
+      {{ '/etc/dropbear/initramfs' if remote_unlock_confdir_new.stat.isdir | default(false)
+         else '/etc/dropbear-initramfs' }}
+
+- name: Authorize the unlocking keys
+  ansible.builtin.copy:
+    content: "{{ remote_unlock_keys }}"
+    dest: "{{ remote_unlock_confdir }}/authorized_keys"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  notify: Update initramfs
+
+- name: Configure the initramfs SSH server
+  ansible.builtin.copy:
+    content: |
+      # Managed by k0s/infra roles/remote_unlock -- local edits are overwritten.
+      DROPBEAR_OPTIONS="-p {{ remote_unlock_port }} {{ remote_unlock_options }}"
+    dest: "{{ remote_unlock_confdir }}/dropbear.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Update initramfs
+
+- name: Bring up networking in the initramfs
+  ansible.builtin.lineinfile:
+    path: /etc/initramfs-tools/initramfs.conf
+    regexp: '^#?\s*IP\s*='
+    line: "IP={{ remote_unlock_ip }}"
+    backup: true
+  become: true
+  notify: Update initramfs
+
+- name: Pin the initramfs to one network device
+  ansible.builtin.lineinfile:
+    path: /etc/initramfs-tools/initramfs.conf
+    regexp: '^#?\s*DEVICE\s*='
+    line: "DEVICE={{ remote_unlock_device }}"
+    backup: true
+  become: true
+  notify: Update initramfs
+  when: remote_unlock_device | length > 0
+
+- name: Report how to use it
+  ansible.builtin.debug:
+    msg: >-
+      Unlock with: ssh -p {{ remote_unlock_port }} root@<host> then run
+      `cryptroot-unlock`. The initramfs has its own host key, so the first
+      connection will ask you to trust a fingerprint that differs from this
+      host's normal sshd -- that is expected. NOT yet verified: reboot once with
+      a working display attached before relying on this.

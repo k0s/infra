@@ -15,6 +15,7 @@ this fits with dotfiles (`k0s/config`) and sync/backup.
 
 ```
 highstate.yml            # applies everything — the single entry point
+unattended-boot.yml       # opt-in: make boot survive an unreliable display
 inventory.ini             # remote/server host(s)
 localhost.ini              # ansible_connection=local, for running against the box itself
 k0s-infra-vars.yml.example # template for the untracked ~/web/k0s-infra-vars.yml
@@ -26,7 +27,17 @@ roles/
   k0sngin_service/     # k0sNgin systemd service + website hosting (server role)
   links/               # website content symlinks (server role)
   syncthing/           # install + enable Syncthing (any role)
+  grub_display/        # pin GRUB's mode so a marginal display stays visible
+  remote_unlock/       # SSH in the initramfs, to unlock an encrypted root
 ```
+
+**`unattended-boot.yml` is deliberately not part of `highstate.yml`.** highstate
+applies state appropriate to every machine; that playbook is a targeted
+intervention for hosts whose console is unreliable or absent, and both its roles
+change how the machine boots. `remote_unlock` in particular rewrites the
+initramfs of a machine with an encrypted root, where a bad image is a host that
+will neither boot nor unlock — apply it with a working display attached and
+reboot once to confirm before relying on it.
 
 **Scope boundary worth knowing:** this repo does not install the k0sNgin
 *application* — that playbook (`install_k0sNgin.yaml`, clone + `uv sync`)

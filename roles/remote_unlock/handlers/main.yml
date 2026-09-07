@@ -1,0 +1,12 @@
+---
+# Nothing written above takes effect until the initramfs is rebuilt: the keys,
+# the dropbear config and the networking settings are all copied *into* the
+# image, not read from disk at boot.
+#
+# -u updates the initramfs for the running kernel only. That is deliberate: it
+# leaves the other installed kernels' images untouched, so GRUB's "Advanced
+# options" entries remain a fallback if this one turns out to be bad.
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u
+  become: true
+  changed_when: true

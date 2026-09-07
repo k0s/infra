@@ -1,0 +1,36 @@
+---
+# Generic technical conventions, safe to be public.
+
+# Port the initramfs SSH server listens on. Deliberately not 22: the initramfs
+# dropbear has its own host key, different from the running system's sshd, so
+# sharing a port makes every normal connection look like a host-key change.
+# A separate port keeps the two known_hosts entries distinct.
+remote_unlock_port: 2222
+
+# How the initramfs brings up networking. Set in /etc/initramfs-tools/initramfs.conf
+# rather than on the kernel command line -- initramfs-tools reads it natively,
+# which avoids editing GRUB_CMDLINE_LINUX for something unrelated to GRUB.
+# For a static address use the kernel ip= syntax:
+#   ip=<client>::<gateway>:<netmask>::<device>:off
+remote_unlock_ip: dhcp
+
+# Restrict the initramfs to one interface. Empty means initramfs-tools decides,
+# which is right for a single-NIC machine. Name a device on a multi-homed host,
+# where guessing wrong means no network at the passphrase prompt.
+remote_unlock_device: ""
+
+# Public keys permitted to unlock. Left undefined on purpose: the role falls
+# back to the keys already trusted for normal SSH on this host, so whoever can
+# log in can also unlock. Override to narrow that set.
+# remote_unlock_authorized_keys: "ssh-ed25519 AAAA... comment"
+
+# Where the existing trusted keys are read from when the above is not set.
+remote_unlock_source_authorized_keys: "{{ ansible_facts.env.HOME }}/.ssh/authorized_keys"
+
+# Hardening passed to the initramfs dropbear. This server exists to accept one
+# command before the root filesystem is mounted, so nothing else is wanted:
+#   -s  refuse password logins (keys only)
+#   -j  disable local port forwarding
+#   -k  disable remote port forwarding
+#   -I  idle timeout, seconds
+remote_unlock_options: "-s -j -k -I 300"
