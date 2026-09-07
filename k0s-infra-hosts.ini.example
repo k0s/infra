@@ -21,3 +21,14 @@ CHANGEME
 [syncthing_mesh]
 localhost
 CHANGEME
+
+# roles/restic is applied ONLY to hosts in this group. Every other role in
+# highstate.yml is appropriate to every machine, so a bare run is safe; backup
+# is the exception, because a host that merely joins the sync mesh should not
+# generate a repo password and start mirroring its copy off-site.
+#
+# Note this group must actually be loaded for restic to apply: pass this file
+# alongside inventory.ini even for a local run, or the group is simply absent
+# and the role silently skips.
+[backup_hosts]
+CHANGEME
