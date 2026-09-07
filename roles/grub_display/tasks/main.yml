@@ -1,0 +1,81 @@
+---
+# Pin the mode GRUB uses and make the kernel inherit it, so a machine with a
+# marginal display stays visible from the menu through to a passphrase prompt.
+#
+# Why this is worth a role. Everything before the root filesystem is mounted --
+# GRUB, plymouth, and an encrypted root's passphrase prompt -- renders on the
+# firmware framebuffer, because Ubuntu ships no GPU driver in the initramfs
+# (verified 2026-09-07: MODULES=most, yet no i915.ko, no xe.ko, no
+# firmware/i915/). So GRUB_GFXMODE is the mode the passphrase prompt is drawn
+# at, and one setting governs both the menu and the prompt.
+#
+# See clawdette operations/runbooks/no-signal-on-tv-during-boot.md for the
+# symptom this addresses and what was ruled out.
+#
+# Idempotent: lineinfile keys on the setting name, so re-running is a no-op once
+# the values are in place. update-grub only fires when something actually
+# changed.
+
+- name: Check /etc/default/grub exists
+  ansible.builtin.stat:
+    path: /etc/default/grub
+  register: grub_display_defaults
+
+- name: Fail early if this is not a GRUB system
+  ansible.builtin.fail:
+    msg: >-
+      /etc/default/grub is absent, so this host does not boot via GRUB
+      (systemd-boot, or a container/VM image). This role has nothing to do here;
+      skip it with --skip-tags grub_display.
+  when: not grub_display_defaults.stat.exists
+
+- name: Set the GRUB menu mode
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?\s*GRUB_GFXMODE\s*='
+    line: 'GRUB_GFXMODE={{ grub_display_gfxmode }}'
+    backup: true
+  become: true
+  notify: Update grub
+
+- name: Hand the mode to the kernel rather than renegotiating it
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?\s*GRUB_GFXPAYLOAD_LINUX\s*='
+    line: 'GRUB_GFXPAYLOAD_LINUX={{ grub_display_gfxpayload }}'
+    backup: true
+  become: true
+  notify: Update grub
+
+# Filters the value token-by-token rather than pattern-substituting the line.
+# GRUB_CMDLINE_LINUX_DEFAULT commonly carries unrelated arguments (crashkernel=,
+# mitigations=, i915 options) that must survive, and a substitution that eats the
+# separators around `quiet splash` silently welds its neighbours together --
+# "crashkernel=2G quiet splash i915.enable_psr=0" became "crashkernel=2Gi915..."
+# in testing, which GRUB accepts and the kernel then misreads. Splitting on
+# whitespace and rejecting two tokens cannot do that.
+- name: Read the current GRUB defaults
+  ansible.builtin.slurp:
+    src: /etc/default/grub
+  register: grub_display_current
+  become: true
+  when: grub_display_remove_splash | bool
+
+- name: Compute the command line without plymouth
+  ansible.builtin.set_fact:
+    grub_display_cmdline: >-
+      {{ ((grub_display_current.content | b64decode)
+          | regex_search('^GRUB_CMDLINE_LINUX_DEFAULT="([^"]*)"', '\1', multiline=True)
+          | first | default('')).split()
+         | reject('in', ['quiet', 'splash']) | join(' ') }}
+  when: grub_display_remove_splash | bool
+
+- name: Drop `quiet` and `splash` from the kernel command line
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^#?\s*GRUB_CMDLINE_LINUX_DEFAULT\s*='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_display_cmdline }}"'
+    backup: true
+  become: true
+  notify: Update grub
+  when: grub_display_remove_splash | bool

@@ -1,0 +1,50 @@
+---
+# unattended-boot.yml — make a machine bootable when its display cannot be trusted.
+#
+# Deliberately NOT part of highstate.yml. highstate applies state that is
+# appropriate to every machine; this is a targeted intervention for hosts whose
+# console is unreliable or absent, and both roles here change how the machine
+# boots. Opt in per host, do not apply fleet-wide by reflex.
+#
+# The two roles attack the same problem from opposite ends:
+#
+#   grub_display   — make the boot display work. Pins GRUB's mode to a CEA
+#                    timing and hands it to the kernel instead of renegotiating
+#                    at the handoff. Cheap and reversible.
+#   remote_unlock  — make the boot display irrelevant. Puts an SSH server in the
+#                    initramfs so an encrypted root can be unlocked from another
+#                    machine. The durable fix, and the heavier one.
+#
+# ALWAYS review a dry run first:
+#   ansible-playbook -i localhost.ini unattended-boot.yml --check --diff
+#
+# Then apply, one host at a time:
+#   ansible-playbook -i inventory.ini unattended-boot.yml \
+#     --limit <host> --ask-become-pass
+#
+# Either half alone:
+#   ... unattended-boot.yml --tags grub_display --ask-become-pass
+#   ... unattended-boot.yml --tags remote_unlock --ask-become-pass
+#
+# While diagnosing a screen that shows nothing during boot, add:
+#   -e grub_display_remove_splash=true
+# which replaces plymouth's graphical passphrase prompt with a plain text one.
+#
+# WARNING, and it is not pro forma: remote_unlock rewrites the initramfs of a
+# machine with an encrypted root. A bad initramfs there is a host that will not
+# boot and cannot be unlocked. Apply it while a working display is attached,
+# reboot once to confirm, and do not rely on remote unlock until you have
+# actually used it. `--check` cannot see through update-initramfs.
+#
+# Background, symptoms, and what was ruled out: clawdette
+# operations/runbooks/no-signal-on-tv-during-boot.md.
+
+- name: Make boot survive an unreliable display
+  hosts: all
+  vars_files:
+    - "{{ k0s_infra_vars_file | default(lookup('env', 'HOME') + '/web/k0s-infra-vars.yml', true) }}"
+  roles:
+    - role: grub_display
+      tags: [grub_display]
+    - role: remote_unlock
+      tags: [remote_unlock]

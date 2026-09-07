@@ -1,0 +1,22 @@
+---
+# Generic technical conventions, safe to be public.
+
+# The mode GRUB draws its menu at. 1920x1080 is a CEA-861 timing, which is what
+# televisions and AV equipment accept reliably; GRUB's own default lands on a
+# VESA mode (commonly 1024x768) that monitors tolerate and many TVs sample with
+# a horizontal offset. Set to "auto" to restore GRUB's own choice.
+grub_display_gfxmode: 1920x1080
+
+# Hand the mode to the kernel instead of letting it renegotiate the link at the
+# GRUB->kernel handoff. This is the setting that matters on a machine whose
+# display is marginal: the handoff is where the picture is most likely to be
+# lost, and "keep" removes the renegotiation entirely.
+grub_display_gfxpayload: keep
+
+# Drop `quiet splash`, so early boot renders as plain text on the simplest
+# framebuffer rather than through plymouth. Worth enabling while diagnosing a
+# display that shows nothing during boot -- on a machine with an encrypted root
+# the passphrase prompt is drawn by plymouth, and a plymouth that cannot init on
+# the attached output leaves an invisible prompt on a perfectly healthy machine.
+# Off by default: it changes how boot looks on every host it is applied to.
+grub_display_remove_splash: false

@@ -1,0 +1,8 @@
+---
+# update-grub regenerates grub.cfg from /etc/default/grub. Nothing takes effect
+# until it runs, so every task above notifies it rather than assuming a later
+# role will.
+- name: Update grub
+  ansible.builtin.command: update-grub
+  become: true
+  changed_when: true
