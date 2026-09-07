@@ -1,4 +1,14 @@
 ---
+# Build dependencies. Previously the role only *checked* for these and failed
+# on a machine that did not already have them -- which every freshly installed
+# host is (2026-09-07). gettext provides msgfmt/msgmerge/xgettext;
+# libglib2.0-bin provides glib-compile-schemas.
+forge_build_packages:
+  - git
+  - make
+  - gettext
+  - libglib2.0-bin
+
 forge_repo: https://github.com/forge-ext/forge
 forge_src: "{{ ansible_facts.env.HOME }}/src/forge"
 forge_ext_dir: "{{ ansible_facts.env.HOME }}/.local/share/gnome-shell/extensions/forge@jmmaranan.com"

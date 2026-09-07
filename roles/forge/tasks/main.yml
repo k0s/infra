@@ -1,11 +1,9 @@
 ---
 # Install the Forge GNOME extension from git (https://github.com/forge-ext/forge).
 #
-# Migrated from clawdette's ~/web/ansible/forge.yaml (2026-08-22).
-#
 # Why git and not extensions.gnome.org: as of 2026-07-03 the e.g.o release (v89)
 # supports GNOME Shell <= 49 only; git main declares 45-50.1, which the Ubuntu
-# 26.04 / GNOME 50 upgrade needs. See clawdette projects/toolbox/ for the plan.
+# 26.04 / GNOME 50 upgrade needs.
 #
 # Deliberately does NOT run Forge's `make all` — its `restart` target logs you
 # out on Wayland. After a run, log out/in manually to reload the shell.
@@ -20,7 +18,15 @@
 # build process ever touches in this checkout, so discarding local
 # modifications before every checkout is safe, not just convenient.
 
-- name: Check build tools are present (apt packages git make gettext libglib2.0-bin)
+- name: Install Forge build dependencies
+  ansible.builtin.apt:
+    name: "{{ forge_build_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Check the build tools are on PATH
   ansible.builtin.command: which {{ item }}
   changed_when: false
   loop:
@@ -30,7 +36,15 @@
     - msgmerge
     - xgettext
     - glib-compile-schemas
-    - gnome-extensions
+
+# Deliberately not installed by this role: gnome-extensions ships with GNOME
+# Shell itself. Its absence means the host has no desktop, which is a reason to
+# skip this role rather than something to fix by pulling in a desktop session.
+- name: Check GNOME Shell is present (forge is a desktop role)
+  ansible.builtin.command: which gnome-extensions
+  changed_when: false
+  register: forge_gnome_check
+  failed_when: forge_gnome_check.rc != 0
 
 - name: Check for an existing installed extension
   ansible.builtin.stat:
