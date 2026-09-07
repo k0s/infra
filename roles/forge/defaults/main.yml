@@ -11,7 +11,8 @@ forge_build_packages:
 
 forge_repo: https://github.com/forge-ext/forge
 forge_src: "{{ ansible_facts.env.HOME }}/src/forge"
-forge_ext_dir: "{{ ansible_facts.env.HOME }}/.local/share/gnome-shell/extensions/forge@jmmaranan.com"
+forge_ext_id: forge@jmmaranan.com
+forge_ext_dir: "{{ ansible_facts.env.HOME }}/.local/share/gnome-shell/extensions/{{ forge_ext_id }}"
 # "main", deliberately not pinned: no tagged release supports GNOME 50 at all
 # (v49-89, the latest, tops out at Shell 49 — confirmed 2026-08-23), and the
 # upstream README itself says Forge "is looking for a new owner or

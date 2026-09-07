@@ -89,9 +89,44 @@
       - "'50' in (forge_metadata.content | b64decode | from_json)['shell-version']"
     fail_msg: "Installed Forge metadata does not list GNOME Shell 50"
 
-- name: Ensure the extension is enabled
-  ansible.builtin.command: gnome-extensions enable forge@jmmaranan.com
+# Enabling is best-effort, because it depends on GNOME Shell state this role
+# cannot control. `gnome-extensions enable` talks to the *running* Shell over
+# D-Bus, and reports `Extension "..." does not exist` in two distinct cases:
+#   1. no session is running at all (a headless host, or nobody logged in);
+#   2. a session IS running but started before this install, so the Shell has
+#      not scanned the extension directory yet.
+# Neither is a failure of this role -- the files are installed and verified
+# above -- so neither should fail the play. Both are fixed by logging in, or
+# logging out and back in. Observed 2026-09-07.
+- name: Check whether a GNOME Shell session is running for this user
+  ansible.builtin.command: pgrep -u {{ ansible_facts.user_id }} -x gnome-shell
+  register: forge_session
   changed_when: false
+  failed_when: false
+  check_mode: false      # read-only probe; must run in --check too, or the
+                         # report below cannot tell the two cases apart
+
+- name: Enable the extension (best effort)
+  ansible.builtin.command: gnome-extensions enable {{ forge_ext_id }}
+  register: forge_enable
+  changed_when: false
+  failed_when: false
+
+- name: Report whether the extension is enabled
+  ansible.builtin.debug:
+    msg: >-
+      {% if forge_enable.rc | default(1) == 0 %}
+      Forge is installed and enabled.
+      {% elif forge_session.rc | default(1) != 0 %}
+      Forge is INSTALLED BUT NOT ENABLED: no GNOME Shell session is running for
+      this user. Log in at the machine; then `gnome-extensions enable
+      {{ forge_ext_id }}`, or just re-run this role.
+      {% else %}
+      Forge is INSTALLED BUT NOT ENABLED: a GNOME Shell session is running, but
+      it started before this install, so the Shell has not scanned the extension
+      yet. Log out and back in at the machine, then `gnome-extensions enable
+      {{ forge_ext_id }}` (or re-run this role).
+      {% endif %}
 
 - name: Remind about the shell reload
   ansible.builtin.debug:
