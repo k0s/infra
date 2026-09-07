@@ -13,7 +13,8 @@
 #
 # Tags:
 #   base             - packages every machine has (any role)
-#   restic          - versioned local + off-site backup (server role)
+#   restic          - versioned local + off-site backup; applied ONLY to hosts
+#                     in the backup_hosts group (k0s-infra-hosts.ini.example)
 #   forge            - GNOME tiling extension (desktop role)
 #   k0sngin_service  - k0sNgin systemd service + website hosting (server role)
 #   links            - website content symlinks (server role)
@@ -69,8 +70,14 @@
   roles:
     - role: base
       tags: [base]
+    # Backup is the one role that is not appropriate everywhere: it generates
+    # a repo password, creates a local repository and installs timers that
+    # mirror off-site. A machine that merely joins the sync mesh should not
+    # start backing its copy up. Membership lives in the untracked inventory,
+    # since which host backs up which is topology, not public configuration.
     - role: restic
       tags: [restic]
+      when: "'backup_hosts' in group_names"
     - role: forge
       tags: [forge]
     - role: k0sngin_service
