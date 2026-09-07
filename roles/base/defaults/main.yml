@@ -1,19 +1,22 @@
 ---
 # Packages every k0s machine is expected to have, regardless of role.
 #
-# These are the ones zero-to-k0s-computer.md installs by hand during bootstrap.
-# Listing them here does not replace that -- Ansible cannot install the package
-# that runs Ansible -- but it makes the set explicit, idempotent, and identical
-# on every host instead of depending on whoever built the machine remembering.
-# Deliberately NOT here: openssh-server. Puffin accepts no inbound SSH by
-# design, and a base role must not change a host's exposure as a side effect.
-# It belongs in a dedicated sshd role, per host. Caught by --check 2026-09-06,
-# which showed this role would have installed it on Puffin.
+# These are the ones a host installs by hand during bootstrap. Listing them here
+# does not replace that -- Ansible cannot install the package that runs Ansible
+# -- but it makes the set explicit, idempotent, and identical on every host
+# instead of depending on whoever built the machine remembering.
+#
+# Deliberately NOT here: openssh-server. Not every host is meant to accept
+# inbound SSH, and a base role must not change a host's network exposure as a
+# side effect. It belongs in a dedicated sshd role, decided per host. A --check
+# run caught this before it merged (2026-09-06): the role would have installed
+# an SSH daemon on a host that deliberately had none.
 base_packages:
   - git
   - ansible
   - gh
-  # Ubuntu ships no /usr/bin/python. Tracked dotfiles and any script with a
-  # `#!/usr/bin/env python` shebang need it; without it a new machine fails at
-  # login with `env: 'python': No such file or directory` (NUC14, 2026-09-06).
+  # Ubuntu ships no /usr/bin/python. Any script with a `#!/usr/bin/env python`
+  # shebang needs it, as do shell dotfiles that call `python` directly. Without
+  # it a freshly installed host fails at login with
+  # `env: 'python': No such file or directory` (2026-09-06).
   - python-is-python3
