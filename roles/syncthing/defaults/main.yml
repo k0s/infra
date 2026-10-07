@@ -22,3 +22,15 @@ syncthing_folder_type: sendreceive
 #   syncthing_folder_types:
 #     web: receiveonly
 syncthing_folder_types: {}
+
+# Devices that are not Ansible hosts (phones, a laptop): each is added to every
+# syncthing_mesh host's device list, and to the share list of each folder it
+# names. Folder share lists are set exactly -- mesh peers plus these -- so a
+# device shared by hand in the GUI is removed on the next run; declare it here.
+# Device IDs are not secret, but they identify a device: keep the real list in
+# your untracked vars file, not in this repo.
+#   syncthing_extra_devices:
+#     - name: phone
+#       id: XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX
+#       folders: [docs]
+syncthing_extra_devices: []
