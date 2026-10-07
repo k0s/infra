@@ -27,6 +27,14 @@ restic_offsite_path: "{{ ansible_facts.env.HOME }}/restic/mesh"
 
 k0sngin_service_user: CHANGEME       # the account k0sNgin's systemd service runs as
 
+# Devices that are not Ansible hosts (phones, a laptop), paired with every
+# syncthing_mesh host and shared the folders they name. Optional; see
+# roles/syncthing/README.md.
+# syncthing_extra_devices:
+#   - name: phone
+#     id: XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX
+#     folders: [docs]
+
 # Shared between the links and k0sngin_service roles (K0SNGIN_LINKS reads the
 # same file at runtime) — one variable, not a path duplicated in two places.
 links_file: "{{ ansible_facts.env.HOME }}/web/links.json"

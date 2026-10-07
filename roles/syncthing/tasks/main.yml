@@ -3,11 +3,16 @@
 # with every other host in the syncthing_mesh inventory group (see
 # clawdette operations/syncthing-pilot.md and roles/syncthing/README.md).
 #
-# What this does NOT do: pair devices. Device trust is a one-time, two-party,
-# interactive exchange (device IDs, mutual "add device" confirmation) — not
+# What this does NOT do: pair mesh hosts with each other. Device trust is a
+# one-time, two-party, interactive exchange (device IDs, mutual "add device"
+# confirmation), and a host's ID doesn't exist until its first run — not
 # something to script blind the first time a mesh forms. See
 # roles/syncthing/README.md for that manual step. Folder *sharing* (this
 # file) only works between devices that are already paired.
+#
+# The exception is syncthing_extra_devices (phones, a laptop): their IDs are
+# declared up front, so each host adds its half of the pairing. The device
+# still has to accept each host.
 #
 # Requires running against the WHOLE syncthing_mesh group in one invocation,
 # not --limit to a single host — folder-sharing needs every member's Device
@@ -66,6 +71,32 @@
   vars:
     _syncthing_requested_types: >-
       {{ ([syncthing_folder_type] + (syncthing_folder_types.values() | list)) | unique }}
+
+# Before anything touches the REST API, so a typo fails the play instead of
+# half-applying. Device IDs are eight dash-separated groups of seven base32
+# characters.
+- name: Validate syncthing_extra_devices
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name is string
+      - item.name | length > 0
+      - item.id is defined
+      - item.id is match('^[A-Z2-7]{7}(-[A-Z2-7]{7}){7}$')
+      - item.folders is defined
+      - item.folders is sequence
+      - item.folders is not string
+      - item.folders | length > 0
+      - item.folders | difference(syncthing_folders) | length == 0
+    fail_msg: >-
+      syncthing_extra_devices entry {{ item.name | default('(unnamed)') }} needs a
+      name, a full device ID (XXXXXXX-XXXXXXX-... uppercase, eight groups), and a
+      non-empty folders list drawn from syncthing_folders
+      ({{ syncthing_folders | join(', ') }}).
+    quiet: true
+  loop: "{{ syncthing_extra_devices }}"
+  loop_control:
+    label: "{{ item.name | default('(unnamed)') }}"
 
 - name: Ensure managed folders exist
   ansible.builtin.file:
@@ -140,7 +171,61 @@
     - not ansible_check_mode
     - syncthing_peer_hosts | default([]) | length > 0
 
-- name: Share folders with every other mesh member
+# Extra devices (phones and the like) have IDs declared up front, so this host
+# can add its half of the pairing; the device still has to accept the host.
+# Only devices this host doesn't know yet are added -- an existing entry is
+# left alone, so a name changed in the GUI survives.
+- name: Read this host's Syncthing device list
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8384/rest/config/devices
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    return_content: true
+  register: syncthing_known_devices
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - syncthing_extra_devices | length > 0
+
+- name: Add declared extra devices this host doesn't know yet
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8384/rest/config/devices
+    method: POST
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    body_format: json
+    body:
+      deviceID: "{{ item.id }}"
+      name: "{{ item.name }}"
+      addresses: [dynamic]
+      autoAcceptFolders: false
+    status_code: [200]
+  changed_when: true
+  loop: >-
+    {{ syncthing_extra_devices
+       | rejectattr('id', 'in', syncthing_known_devices.json | default([]) | map(attribute='deviceID') | list)
+       | list }}
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - not ansible_check_mode
+    - syncthing_extra_devices | length > 0
+
+- name: Build each folder's extra-device share list
+  ansible.builtin.set_fact:
+    syncthing_extra_shares: >-
+      {{ syncthing_extra_shares | default({})
+         | combine({item.1: (syncthing_extra_shares | default({})).get(item.1, [])
+                            + [{'deviceID': item.0.id}]}) }}
+  loop: "{{ syncthing_extra_devices | subelements('folders') }}"
+  loop_control:
+    label: "{{ item.0.name }} -> {{ item.1 }}"
+  when: not ansible_check_mode
+
+# PUT replaces the whole folder object, so each managed folder's share list is
+# set exactly: mesh peers plus the extra devices that name it. Anything shared
+# by hand in the GUI is removed -- declare it in syncthing_extra_devices.
+- name: Share folders with every other mesh member and declared extra device
   ansible.builtin.uri:
     url: "http://127.0.0.1:8384/rest/config/folders/{{ item }}"
     method: PUT
@@ -152,17 +237,20 @@
       label: "{{ item }}"
       path: "{{ ansible_facts.env.HOME }}/{{ item }}"
       type: "{{ syncthing_folder_types[item] | default(syncthing_folder_type) }}"
-      devices: "{{ syncthing_peer_devices | default([]) }}"
+      devices: >-
+        {{ (syncthing_peer_devices | default([]))
+           + (syncthing_extra_shares | default({})).get(item, []) }}
     status_code: [200, 201]
   loop: "{{ syncthing_folders }}"
   when:
     - not ansible_check_mode
-    - syncthing_peer_hosts | default([]) | length > 0
+    - (syncthing_peer_hosts | default([]) | length > 0) or (syncthing_extra_devices | length > 0)
 
 - name: Remind about the manual pairing step
   ansible.builtin.debug:
     msg: >-
       Syncthing is installed and running for {{ ansible_facts.user_id }}
       (GUI at http://127.0.0.1:8384). Folder sharing with syncthing_mesh
-      peers is automated; device pairing (the initial trust exchange)
-      is not — see roles/syncthing/README.md.
+      peers and declared extra devices is automated; pairing mesh hosts
+      (the initial trust exchange) is not — see roles/syncthing/README.md.
+      Extra devices still have to accept each host.

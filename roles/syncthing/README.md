@@ -67,6 +67,45 @@ newbox   syncthing_folder_type=receiveonly
    project discussion, 2026-08-22) — tracked as a clawdette task, not part of
    this role.
 
+## Extra devices (`syncthing_extra_devices`)
+
+Devices that are not Ansible hosts — a phone, a laptop — are declared in the
+vars file with their device ID and the folders they get:
+
+```yaml
+syncthing_extra_devices:
+  - name: phone
+    id: XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX
+    folders: [docs]
+```
+
+Every `syncthing_mesh` host then:
+
+1. adds the device to its device list, if it isn't there already (an existing
+   entry is left alone);
+2. includes it in the share list of each folder it names.
+
+The device still has to accept each host ("wants to connect", then the folder
+offer) — that half of the handshake stays on the device.
+
+**Share lists are exact.** The folder `PUT` replaces the whole folder object,
+so each managed folder is shared with precisely the other mesh hosts plus the
+extra devices that name it. A device shared by hand in the GUI is unshared on
+the next run; declare it here instead. The same `PUT` resets any other folder
+setting changed in the GUI (versioning, rescan interval) to Syncthing's default.
+
+Removing an entry unshares its folders on the next run. The device stays in
+each host's device list; delete it in the GUI if it is gone for good.
+
+A possible later change: merge instead of replace (`PATCH` the folder, union
+the existing share list with peers and extra devices). Hand-made shares and
+GUI settings would then survive, at the cost of removal becoming manual.
+
+Device IDs are not secrets, but they identify a device, so keep the real list
+in the untracked vars file, not in this repo. The list is validated before
+any API call: a malformed ID or a folder not in `syncthing_folders` fails the
+play.
+
 ## Introducer (optional, one-time, also manual)
 
 Flagging one device as an Introducer on a peer's side means any *future*
