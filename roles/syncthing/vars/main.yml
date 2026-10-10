@@ -4,3 +4,8 @@ syncthing_folder_types_valid:
   - sendreceive
   - sendonly
   - receiveonly
+
+# Derived, not settings. Mesh membership gates every pairing and sharing step:
+# a host outside the group only gets Syncthing installed.
+syncthing_in_mesh: "{{ inventory_hostname in groups.get('syncthing_mesh', []) }}"
+syncthing_peer_hosts: "{{ groups.get('syncthing_mesh', []) | difference([inventory_hostname]) }}"

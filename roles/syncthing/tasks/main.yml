@@ -1,22 +1,19 @@
 ---
-# Install Syncthing, prepare the folders in syncthing_folders, and share them
-# with every other host in the syncthing_mesh inventory group (see
-# clawdette operations/syncthing-pilot.md and roles/syncthing/README.md).
+# Install Syncthing, prepare the folders in syncthing_folders, and reconcile
+# each syncthing_mesh host's devices and folder shares to the declared state
+# (see roles/syncthing/README.md).
 #
-# What this does NOT do: pair mesh hosts with each other. Device trust is a
-# one-time, two-party, interactive exchange (device IDs, mutual "add device"
-# confirmation), and a host's ID doesn't exist until its first run — not
-# something to script blind the first time a mesh forms. See
-# roles/syncthing/README.md for that manual step. Folder *sharing* (this
-# file) only works between devices that are already paired.
+# Trust model: a device ID is the SHA-256 fingerprint of that device's TLS
+# certificate, so accepting a device means deciding "this ID is that
+# machine". Here that decision is made once, by pinning each mesh host's ID
+# in the inventory (syncthing_pinned_device_id) and each extra device's ID
+# in syncthing_extra_devices. Every run checks the host's live ID against
+# its pin and fails on a mismatch (reinstall, cloned disk, new certificate)
+# rather than trusting a new identity. Nothing is ever accepted from the
+# pending lists -- they are reported, because anything there is undeclared.
 #
-# The exception is syncthing_extra_devices (phones, a laptop): their IDs are
-# declared up front, so each host adds its half of the pairing. The device
-# still has to accept each host.
-#
-# Requires running against the WHOLE syncthing_mesh group in one invocation,
-# not --limit to a single host — folder-sharing needs every member's Device
-# ID via hostvars, which only get populated for hosts this exact run touches.
+# A host outside syncthing_mesh only gets Syncthing installed and running:
+# no devices are added and no folders shared until it joins the group.
 #
 # NOTE: verify the signing-key URL and repo details against
 # https://apt.syncthing.net/ at deploy time — apt-repo setup instructions can
@@ -98,6 +95,19 @@
   loop_control:
     label: "{{ item.name | default('(unnamed)') }}"
 
+- name: Validate the pinned device IDs of every mesh host
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].syncthing_pinned_device_id is defined
+      - hostvars[item].syncthing_pinned_device_id is match('^[A-Z2-7]{7}(-[A-Z2-7]{7}){7}$')
+    fail_msg: >-
+      {{ item }} is in syncthing_mesh but has no valid syncthing_pinned_device_id.
+      Read it on that host with `syncthing --device-id` (v1) or
+      `syncthing device-id` (v2) and set it on the host's inventory line.
+    quiet: true
+  loop: "{{ groups.get('syncthing_mesh', []) }}"
+  when: syncthing_in_mesh | bool
+
 - name: Ensure managed folders exist
   ansible.builtin.file:
     path: "{{ ansible_facts.env.HOME }}/{{ item }}"
@@ -140,41 +150,54 @@
   changed_when: false
   when: not ansible_check_mode
 
-- name: Set the device ID fact (published via hostvars for peers to read)
+- name: Set the device ID fact
   ansible.builtin.set_fact:
     syncthing_device_id: "{{ syncthing_status.json.myID }}"
   when: not ansible_check_mode
 
-- name: Determine this mesh's other members
-  ansible.builtin.set_fact:
-    syncthing_peer_hosts: "{{ groups.get('syncthing_mesh', []) | difference([inventory_hostname]) }}"
-  when: not ansible_check_mode
-
-- name: Verify peer device IDs are known
+- name: Verify this host's live device ID matches its pin
   ansible.builtin.assert:
     that:
-      - hostvars[item].syncthing_device_id is defined
+      - syncthing_device_id == syncthing_pinned_device_id
     fail_msg: >-
-      {{ item }}'s Syncthing device ID isn't known — this requires running
-      highstate.yml against the whole syncthing_mesh group in one invocation,
-      not --limit to a single host, so device IDs cross-share via hostvars.
-  loop: "{{ syncthing_peer_hosts | default([]) }}"
+      This host's Syncthing device ID is {{ syncthing_device_id }}, but its
+      inventory pins {{ syncthing_pinned_device_id }}. A reinstall or a new
+      certificate changes the ID; if that is expected, update the pin --
+      that edit is the trust decision.
+    quiet: true
   when:
     - not ansible_check_mode
-    - syncthing_peer_hosts | default([]) | length > 0
+    - syncthing_in_mesh | bool
 
-- name: Build the peer device list for folder sharing
+# Peers come from the inventory pins, not from runtime facts, so a --limit
+# run no longer fails on missing hostvars. Both sides of a pair still need a
+# run to converge, so run the whole group.
+- name: Declare mesh peers
   ansible.builtin.set_fact:
-    syncthing_peer_devices: "{{ (syncthing_peer_devices | default([])) + [{'deviceID': hostvars[item].syncthing_device_id}] }}"
-  loop: "{{ syncthing_peer_hosts | default([]) }}"
+    syncthing_declared_devices: >-
+      {{ (syncthing_declared_devices | default([]))
+         + [{'deviceID': hostvars[item].syncthing_pinned_device_id,
+             'name': hostvars[item].syncthing_device_name | default(item)}] }}
+    syncthing_peer_devices: >-
+      {{ (syncthing_peer_devices | default([]))
+         + [{'deviceID': hostvars[item].syncthing_pinned_device_id}] }}
+  loop: "{{ syncthing_peer_hosts }}"
   when:
     - not ansible_check_mode
-    - syncthing_peer_hosts | default([]) | length > 0
+    - syncthing_in_mesh | bool
 
-# Extra devices (phones and the like) have IDs declared up front, so this host
-# can add its half of the pairing; the device still has to accept the host.
-# Only devices this host doesn't know yet are added -- an existing entry is
-# left alone, so a name changed in the GUI survives.
+- name: Declare extra devices
+  ansible.builtin.set_fact:
+    syncthing_declared_devices: >-
+      {{ (syncthing_declared_devices | default([]))
+         + [{'deviceID': item.id, 'name': item.name}] }}
+  loop: "{{ syncthing_extra_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - not ansible_check_mode
+    - syncthing_in_mesh | bool
+
 - name: Read this host's Syncthing device list
   ansible.builtin.uri:
     url: http://127.0.0.1:8384/rest/config/devices
@@ -185,9 +208,12 @@
   changed_when: false
   when:
     - not ansible_check_mode
-    - syncthing_extra_devices | length > 0
+    - syncthing_in_mesh | bool
 
-- name: Add declared extra devices this host doesn't know yet
+# This is the pairing: the ID was accepted when it was pinned, so no GUI
+# confirmation is needed on either side. An existing entry keeps its name
+# (renames in the GUI survive); only the trust flags are enforced below.
+- name: Add declared devices this host doesn't know yet
   ansible.builtin.uri:
     url: http://127.0.0.1:8384/rest/config/devices
     method: POST
@@ -195,21 +221,51 @@
       X-API-Key: "{{ syncthing_apikey }}"
     body_format: json
     body:
-      deviceID: "{{ item.id }}"
+      deviceID: "{{ item.deviceID }}"
       name: "{{ item.name }}"
       addresses: [dynamic]
+      introducer: false
       autoAcceptFolders: false
     status_code: [200]
   changed_when: true
   loop: >-
-    {{ syncthing_extra_devices
-       | rejectattr('id', 'in', syncthing_known_devices.json | default([]) | map(attribute='deviceID') | list)
+    {{ syncthing_declared_devices | default([])
+       | rejectattr('deviceID', 'in', syncthing_known_devices.json | map(attribute='deviceID') | list)
        | list }}
   loop_control:
     label: "{{ item.name }}"
   when:
     - not ansible_check_mode
-    - syncthing_extra_devices | length > 0
+    - syncthing_in_mesh | bool
+
+# Introduction and auto-accept are second, implicit trust paths: an
+# introducer adds devices on our behalf, and auto-accept takes any folder a
+# device offers. With every device and share declared, both are redundant.
+- name: Turn off introducer and auto-accept on declared devices
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8384/rest/config/devices/{{ item.deviceID }}"
+    method: PATCH
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    body_format: json
+    body:
+      introducer: false
+      autoAcceptFolders: false
+    status_code: [200]
+  changed_when: true
+  loop: >-
+    {{ ((_declared | selectattr('introducer') | list)
+        + (_declared | selectattr('autoAcceptFolders') | list)) | unique }}
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    _declared: >-
+      {{ syncthing_known_devices.json
+         | selectattr('deviceID', 'in', syncthing_declared_devices | default([]) | map(attribute='deviceID') | list)
+         | list }}
+  when:
+    - not ansible_check_mode
+    - syncthing_in_mesh | bool
 
 - name: Build each folder's extra-device share list
   ansible.builtin.set_fact:
@@ -220,11 +276,15 @@
   loop: "{{ syncthing_extra_devices | subelements('folders') }}"
   loop_control:
     label: "{{ item.0.name }} -> {{ item.1 }}"
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - syncthing_in_mesh | bool
 
 # PUT replaces the whole folder object, so each managed folder's share list is
 # set exactly: mesh peers plus the extra devices that name it. Anything shared
 # by hand in the GUI is removed -- declare it in syncthing_extra_devices.
+# Because both sides of each pair get the folder in the same run, no folder
+# offers are generated for anyone to accept.
 - name: Share folders with every other mesh member and declared extra device
   ansible.builtin.uri:
     url: "http://127.0.0.1:8384/rest/config/folders/{{ item }}"
@@ -244,13 +304,49 @@
   loop: "{{ syncthing_folders }}"
   when:
     - not ansible_check_mode
-    - (syncthing_peer_hosts | default([]) | length > 0) or (syncthing_extra_devices | length > 0)
+    - syncthing_in_mesh | bool
 
-- name: Remind about the manual pairing step
+# Never accepted, only reported: anything here is a device or folder offer
+# that nobody declared.
+- name: Read pending devices and folder offers
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8384/rest/cluster/pending/{{ item }}"
+    headers:
+      X-API-Key: "{{ syncthing_apikey }}"
+    return_content: true
+  register: syncthing_pending
+  changed_when: false
+  loop: [devices, folders]
+  when:
+    - not ansible_check_mode
+    - syncthing_in_mesh | bool
+
+- name: Report undeclared devices and pending offers
+  ansible.builtin.debug:
+    msg:
+      - "Configured but undeclared devices (remove in the GUI if gone): {{ _undeclared }}"
+      - "Pending devices (not accepted): {{ syncthing_pending.results[0].json | default({}) | dict2items | map(attribute='value.name') | list }}"
+      - "Pending folder offers (not accepted): {{ syncthing_pending.results[1].json | default({}) | list }}"
+  vars:
+    _undeclared: >-
+      {{ syncthing_known_devices.json
+         | rejectattr('deviceID', 'in', (syncthing_declared_devices | default([]) | map(attribute='deviceID') | list) + [syncthing_device_id])
+         | map(attribute='name') | list }}
+  when:
+    - not ansible_check_mode
+    - syncthing_in_mesh | bool
+    - _undeclared | length > 0
+      or syncthing_pending.results[0].json | default({}) | length > 0
+      or syncthing_pending.results[1].json | default({}) | length > 0
+
+- name: Note what is left manual
   ansible.builtin.debug:
     msg: >-
-      Syncthing is installed and running for {{ ansible_facts.user_id }}
-      (GUI at http://127.0.0.1:8384). Folder sharing with syncthing_mesh
-      peers and declared extra devices is automated; pairing mesh hosts
-      (the initial trust exchange) is not — see roles/syncthing/README.md.
-      Extra devices still have to accept each host.
+      {% if syncthing_in_mesh | bool %}
+      Syncthing devices and folder shares reconciled for {{ ansible_facts.user_id }}.
+      Extra devices (phones, laptops) still accept each host once on their side.
+      {% else %}
+      Syncthing is installed and running, but {{ inventory_hostname }} is not in
+      syncthing_mesh, so nothing was paired or shared. Pin its device ID
+      (`syncthing --device-id`) in the inventory and add it to the group.
+      {% endif %}

@@ -14,13 +14,13 @@
 
 CHANGEME
 
-# roles/syncthing shares folders between every host in this group (cross-host
-# Device ID lookup via hostvars) — run highstate.yml against the whole group
-# in one invocation, not --limit to a single member, or folder-sharing fails
-# with a clear error instead of silently doing nothing.
+# roles/syncthing pairs and shares folders between every host in this group.
+# Each member needs its device ID pinned (`syncthing --device-id` on that
+# host) -- the pin is the trust decision. Run highstate.yml against the whole
+# group so both sides of each pair converge in one run.
 [syncthing_mesh]
-localhost
-CHANGEME
+localhost syncthing_pinned_device_id=CHANGEME syncthing_device_name=CHANGEME
+CHANGEME  syncthing_pinned_device_id=CHANGEME
 
 # roles/restic is applied ONLY to hosts in this group. Every other role in
 # highstate.yml is appropriate to every machine, so a bare run is safe; backup

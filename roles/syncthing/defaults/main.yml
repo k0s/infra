@@ -34,3 +34,14 @@ syncthing_folder_types: {}
 #       id: XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX
 #       folders: [docs]
 syncthing_extra_devices: []
+
+# Per host, in the inventory -- no default, and required for every member of
+# syncthing_mesh. The device ID this host must present (`syncthing
+# --device-id`); pinning it is the trust decision, and a run fails if the live
+# ID differs. See README "Pairing".
+#   newbox syncthing_pinned_device_id=XXXXXXX-XXXXXXX-...
+#
+# Optional per host: the name peers give this device when they add it.
+# Defaults to the inventory hostname (set it where that is "localhost").
+#   localhost syncthing_device_name=puffin
+
