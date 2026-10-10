@@ -7,8 +7,9 @@ REST API — a real folder gets configured with the right device list on both
 sides, not just installed software (verified 2026-08-23: both hosts converge
 to `state: idle`, `needFiles: 0`).
 
-It does **not** pair devices — that's a one-time, interactive, two-party trust
-exchange, not something to script blind the first time a mesh forms.
+It also **pairs** them, from IDs you pin in the inventory: the one manual trust
+step per device is recording its ID, after which runs reconcile devices and
+shares with no GUI dialogs on either side. See [Pairing](#pairing-pin-the-id-once).
 
 ## Folder type (`syncthing_folder_type`)
 
@@ -48,24 +49,41 @@ pop-os
 newbox   syncthing_folder_type=receiveonly
 ```
 
-## One-time manual step: pairing (do once, per device pair)
+## Pairing: pin the ID once
 
-1. On each machine, open the Syncthing GUI: http://127.0.0.1:8384
-2. Under **Actions > Show ID**, copy each machine's device ID.
-3. On each machine, **Add Remote Device**, paste the other's ID, give it a
-   name.
-4. Once both machines show the other as connected, run `highstate.yml`
-   against the whole `syncthing_mesh` group (not `--limit` to a single host —
-   folder-sharing needs every member's Device ID via `hostvars`, see
-   `tasks/main.yml`'s header). Folder sharing happens automatically from here.
-5. Confirm sync completes (`state: idle`, `needFiles: 0` via
-   `/rest/db/status?folder=<id>`), then update `~/.silvermirror`
-   (`~/web/sync.ini`) to drop the `[movies]` resource — Unison should stop
-   touching it once Syncthing owns it. `~/projects` was never Unison-managed,
-   so nothing to remove there. This is also the point to clean up
-   `~/bin/syn.sh`'s stale Mercurial-era lines (see clawdette's `media-server`
-   project discussion, 2026-08-22) — tracked as a clawdette task, not part of
-   this role.
+A device ID is the SHA-256 fingerprint of the device's TLS certificate, so
+"accept this device" means "this ID is that machine". This role makes that
+decision once, in the inventory, instead of in a GUI on both sides:
+
+1. On the new host, read its ID — `syncthing --device-id` (v1) or
+   `syncthing device-id` (v2). Over SSH is fine: SSH already authenticates
+   the host, so this is at least as strong as reading it off its screen.
+2. Pin it on the host's inventory line and add the host to `syncthing_mesh`:
+
+   ```ini
+   [syncthing_mesh]
+   localhost syncthing_pinned_device_id=XXXXXXX-...  syncthing_device_name=puffin
+   newbox    syncthing_pinned_device_id=XXXXXXX-...  syncthing_folder_type=receiveonly
+   ```
+
+3. Run `highstate.yml` against the whole group. Every member adds every other
+   member (and the declared extra devices) and sets folder shares; both sides
+   change in the same run, so nothing is offered for anyone to accept.
+
+Every run checks the host's live ID against its pin and **fails on a
+mismatch** — a reinstall, cloned disk or regenerated certificate is a new
+identity, and trusting it is an inventory edit, not something a run does by
+itself. Every mesh member must have a pin; a missing or malformed one fails
+the play before any API call.
+
+A host **outside** `syncthing_mesh` gets Syncthing installed and running, and
+nothing else: no devices added, no folders shared. A new machine's first local
+run therefore offers itself to no one.
+
+Pending devices and folder offers (`/rest/cluster/pending/...`) are
+**reported, never accepted**: with every device declared, anything pending is
+unexpected. So are devices configured on the host but declared nowhere —
+removing those is left manual for now.
 
 ## Extra devices (`syncthing_extra_devices`)
 
@@ -106,15 +124,16 @@ in the untracked vars file, not in this repo. The list is validated before
 any API call: a malformed ID or a folder not in `syncthing_folders` fails the
 play.
 
-## Introducer (optional, one-time, also manual)
+## Introducer and auto-accept: turned off
 
-Flagging one device as an Introducer on a peer's side means any *future*
-device that pairs with the introducer gets automatically introduced to that
-peer too — no manual re-pairing with every existing device. Not scripted here
-(same reasoning as device pairing itself — a trust decision, not a
-config value): set via the REST API,
-`PATCH /rest/config/devices/<id>` with `{"introducer": true}` on the peer that
-should trust the introducer.
+Both are implicit trust paths — an introducer adds devices on your behalf,
+and auto-accept takes any folder a device offers. With every device and share
+declared they are redundant, and an introducer fights reconciliation
+(introduced devices come back). The role sets `introducer: false` and
+`autoAcceptFolders: false` on every declared device, and adds new ones that
+way. Devices it doesn't manage (a phone's own device list) are out of reach;
+there, auto-accepting folders from one trusted mesh host is a reasonable
+one-time choice.
 
 This is the pilot step from clawdette's `sync-backup` project
 (`operations/syncthing-pilot.md`) — low-stakes folders first, before trusting
