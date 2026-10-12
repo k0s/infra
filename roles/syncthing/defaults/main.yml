@@ -44,4 +44,3 @@ syncthing_extra_devices: []
 # Optional per host: the name peers give this device when they add it.
 # Defaults to the inventory hostname (set it where that is "localhost").
 #   localhost syncthing_device_name=puffin
-
