@@ -23,3 +23,6 @@ forge_ext_dir: "{{ ansible_facts.env.HOME }}/.local/share/gnome-shell/extensions
 # The recurring po/*.po dirt this causes is handled structurally below
 # (force: yes on the clone/update task), not by avoiding the moving target.
 forge_version: main
+
+# Oldest GNOME Shell the tracked Forge supports (its metadata.json lists 45+).
+forge_min_shell: "45"
