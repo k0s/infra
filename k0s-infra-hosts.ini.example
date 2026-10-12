@@ -22,6 +22,12 @@ CHANGEME
 localhost syncthing_pinned_device_id=CHANGEME syncthing_device_name=CHANGEME
 CHANGEME  syncthing_pinned_device_id=CHANGEME
 
+# roles/k0sngin_service and roles/links (the website) apply ONLY to hosts in
+# this group. Outside it, a host gets no k0sNgin unit and no content symlinks.
+[web_hosts]
+localhost
+CHANGEME
+
 # roles/restic is applied ONLY to hosts in this group. Every other role in
 # highstate.yml is appropriate to every machine, so a bare run is safe; backup
 # is the exception, because a host that merely joins the sync mesh should not

@@ -80,9 +80,15 @@
       when: "'backup_hosts' in group_names"
     - role: forge
       tags: [forge]
+    # The website roles apply only to hosts that serve it. Membership lives in
+    # the untracked inventory, like backup_hosts. A host outside the group --
+    # including a new machine's first local run -- gets neither a k0sNgin unit
+    # nor the content symlinks (whose targets only exist after sync anyway).
     - role: k0sngin_service
       tags: [k0sngin_service]
+      when: "'web_hosts' in group_names"
     - role: links
       tags: [links]
+      when: "'web_hosts' in group_names"
     - role: syncthing
       tags: [syncthing]

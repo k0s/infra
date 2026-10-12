@@ -6,9 +6,57 @@
 # wherever this repo is actually cloned (infra_repo_path), rather than the old
 # hardcoded ~/web/ansible/links.json path.
 #
-# This installs the *service wiring* only. Installing the k0sNgin application
-# itself (clone + `uv sync`) is a separate concern that lives in the k0sNgin
-# repo's own ansible/ directory — see that repo's infra/ansible/install_k0sNgin.yaml.
+# It also installs the application the unit runs, if it is missing: without
+# it the unit crash-loops with status=203/EXEC (found 2026-10-12 on two hosts
+# that had the unit but no checkout). Install only -- an existing checkout or
+# virtualenv is left alone, so this never redeploys or moves a dev branch.
+
+- name: Check for the k0sNgin virtualenv
+  ansible.builtin.stat:
+    path: "{{ k0sngin_service_venv }}/bin/uvicorn"
+  register: k0sngin_service_venv_check
+
+# Everything in this block downloads or builds, so it is skipped under --check
+# (get_url would not fetch, and the steps after it would fail on the missing
+# file). A dry run shows it as skipped on a host that needs the install.
+- name: Install the k0sNgin application
+  when:
+    - not k0sngin_service_venv_check.stat.exists
+    - not ansible_check_mode
+  block:
+    - name: Create the uv directory
+      ansible.builtin.file:
+        path: "{{ k0sngin_service_uv_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download uv (pinned, checksum-verified)
+      ansible.builtin.get_url:
+        url: "https://github.com/astral-sh/uv/releases/download/{{ k0sngin_service_uv_version }}/uv-{{ k0sngin_service_uv_target }}.tar.gz"
+        dest: "{{ k0sngin_service_uv_dir }}/uv.tar.gz"
+        checksum: "sha256:{{ k0sngin_service_uv_sha256 }}"
+        mode: "0644"
+
+    - name: Unpack uv
+      ansible.builtin.unarchive:
+        src: "{{ k0sngin_service_uv_dir }}/uv.tar.gz"
+        dest: "{{ k0sngin_service_uv_dir }}"
+        remote_src: true
+        creates: "{{ k0sngin_service_uv_dir }}/uv-{{ k0sngin_service_uv_target }}/uv"
+
+    - name: Clone k0sNgin (only if absent)
+      ansible.builtin.git:
+        repo: "{{ k0sngin_service_repo }}"
+        dest: "{{ k0sngin_service_src }}"
+        version: main
+        update: false
+
+    - name: Build the virtualenv from uv.lock
+      ansible.builtin.command:
+        cmd: "{{ k0sngin_service_uv_dir }}/uv-{{ k0sngin_service_uv_target }}/uv sync --frozen"
+        chdir: "{{ k0sngin_service_src }}"
+        creates: "{{ k0sngin_service_venv }}/bin/uvicorn"
+      notify: Reload systemd and restart k0sNgin
 
 - name: Render k0sNgin systemd service
   become: true

@@ -4,3 +4,18 @@ k0sngin_service_venv: "{{ ansible_facts.env.HOME }}/src/k0sNgin/.venv"
 # k0sngin_service_user is deliberately NOT defaulted here — it comes from
 # ~/web/k0s-infra-vars.yml (see k0s-infra-vars.yml.example). It's host
 # account data, not generic logic; the role fails fast if it's missing.
+
+# The application checkout the unit runs from. Cloned only if absent and never
+# updated here: on a host where someone develops in this checkout, the role
+# must not move its branch. Deploying a new version is a separate step.
+k0sngin_service_src: "{{ ansible_facts.env.HOME }}/src/k0sNgin"
+k0sngin_service_repo: https://github.com/k0s/k0sNgin.git
+
+# uv builds the virtualenv from the repo's uv.lock (`uv sync --frozen`). It is
+# fetched as a pinned release and checked against its published SHA-256, into
+# a directory of its own, so an existing ~/.local/bin/uv is never touched.
+# Bump both values together, from the release's .sha256 asset.
+k0sngin_service_uv_version: "0.9.17"
+k0sngin_service_uv_target: x86_64-unknown-linux-gnu
+k0sngin_service_uv_sha256: 0114d54f9aafd07516cf1cadfe72afa970f5fd293fbe82dd924b8a7b42c984d8
+k0sngin_service_uv_dir: "{{ ansible_facts.env.HOME }}/.local/share/k0sngin-uv/{{ k0sngin_service_uv_version }}"
