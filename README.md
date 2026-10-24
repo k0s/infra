@@ -27,6 +27,7 @@ roles/
   k0sngin_service/     # k0sNgin systemd service + website hosting (server role)
   links/               # website content symlinks (server role)
   syncthing/           # install + enable Syncthing (any role)
+  cloudflared/         # Cloudflare Tunnel connector, token in a root-only file (server role)
   grub_display/        # pin GRUB's mode so a marginal display stays visible
   remote_unlock/       # SSH in the initramfs, to unlock an encrypted root
 ```

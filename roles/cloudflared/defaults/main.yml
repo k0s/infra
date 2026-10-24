@@ -1,0 +1,11 @@
+---
+# The tunnel token lives in this file, readable by root only, and cloudflared
+# reads it with --token-file. It is never a role variable: a variable would
+# put the secret on a command line (-e), in shell history, or in a vars file.
+cloudflared_token_file: /etc/cloudflared/token
+
+# Cloudflare's apt repository. Paths match what Cloudflare's own install
+# instructions create, so a host set up by hand converges without a duplicate.
+cloudflared_apt_key_url: https://pkg.cloudflare.com/cloudflare-public-v2.gpg
+cloudflared_apt_keyring: /usr/share/keyrings/cloudflare-public-v2.gpg
+cloudflared_apt_uri: https://pkg.cloudflare.com/cloudflared

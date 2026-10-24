@@ -1,0 +1,136 @@
+---
+# Run cloudflared as a systemd service that connects this host to a Cloudflare
+# Tunnel, with the tunnel token kept out of sight.
+#
+# Why: `cloudflared service install <token>` -- the command Cloudflare's
+# dashboard suggests -- writes the token into the unit's ExecStart. The unit
+# file is world-readable, and the token also shows in every user's `ps`.
+# Whoever holds the token can run a connector for the tunnel and answer some
+# of the site's traffic. Here the token lives in a root-only file instead, and
+# cloudflared reads it with --token-file.
+#
+# The token is never a role variable. On the first run against a host set up
+# by hand, it is moved out of the existing unit into the token file. On a fresh
+# host, put the token there yourself (root, 0600) before running this role.
+#
+# This role does not create the tunnel or its routes; those live in the
+# Cloudflare account. Rotating the token is done there too: replace the
+# file's contents and restart the service.
+#
+# The cloudflared-update timer that `service install` also creates is left
+# alone. It is disabled by default, and an apt-installed cloudflared updates
+# through apt.
+
+- name: Add the Cloudflare apt signing key
+  ansible.builtin.get_url:
+    url: "{{ cloudflared_apt_key_url }}"
+    dest: "{{ cloudflared_apt_keyring }}"
+    mode: "0644"
+  become: true
+
+- name: Add the cloudflared apt repository (deb822 format)
+  ansible.builtin.deb822_repository:
+    name: cloudflared
+    types: deb
+    uris: "{{ cloudflared_apt_uri }}"
+    suites: any
+    components: main
+    signed_by: "{{ cloudflared_apt_keyring }}"
+  become: true
+  register: cloudflared_repo
+
+- name: Update apt cache after adding the repo
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when: cloudflared_repo.changed
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+  become: true
+
+- name: Create the token directory (root only)
+  ansible.builtin.file:
+    path: "{{ cloudflared_token_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
+
+- name: Check for the token file
+  ansible.builtin.stat:
+    path: "{{ cloudflared_token_file }}"
+  become: true
+  register: cloudflared_token_stat
+
+# One-time migration from a hand-installed unit. Every task that touches the
+# token is no_log, so it never reaches the terminal or a log.
+- name: Move the token out of a hand-installed unit
+  when: not cloudflared_token_stat.stat.exists
+  block:
+    - name: Read the existing unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/cloudflared.service
+      become: true
+      register: cloudflared_old_unit
+      failed_when: false
+      no_log: true
+
+    - name: Extract the token from its command line
+      ansible.builtin.set_fact:
+        cloudflared_migrated_token: >-
+          {{ (cloudflared_old_unit.content | default('') | b64decode
+              | regex_search('--token[ =](\S+)', '\1') or [''])[0] }}
+      no_log: true
+
+    - name: Stop if there is no token to use
+      ansible.builtin.assert:
+        that: cloudflared_migrated_token | length > 0
+        fail_msg: >-
+          No tunnel token found. Put it in {{ cloudflared_token_file }}
+          (owner root, mode 0600), then run this role again.
+        quiet: true
+
+    - name: Write the token file
+      ansible.builtin.copy:
+        content: "{{ cloudflared_migrated_token }}\n"
+        dest: "{{ cloudflared_token_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      no_log: true
+      notify: Reload systemd and restart cloudflared
+
+- name: Keep the token file root-only
+  ansible.builtin.file:
+    path: "{{ cloudflared_token_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  # Under --check on the first run the file was never written.
+  when: not ansible_check_mode or cloudflared_token_stat.stat.exists
+
+# diff: false because the unit it replaces may still hold the token, and
+# --diff would print the old contents.
+- name: Render the cloudflared systemd unit
+  diff: false
+  ansible.builtin.template:
+    src: cloudflared.service.j2
+    dest: /etc/systemd/system/cloudflared.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Reload systemd and restart cloudflared
+
+- name: Enable cloudflared
+  ansible.builtin.systemd_service:
+    name: cloudflared
+    enabled: true
+    state: started
+  become: true
