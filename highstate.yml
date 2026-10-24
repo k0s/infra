@@ -20,6 +20,9 @@
 #   links            - website content symlinks (server role)
 #   syncthing        - install, enable, and share folders (any role) — see
 #                      Caveat below on running against the whole mesh
+#   cloudflared      - Cloudflare Tunnel connector as a systemd service, token
+#                      in a root-only file; applied ONLY to hosts in the
+#                      tunnel_hosts group
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -92,3 +95,8 @@
       when: "'web_hosts' in group_names"
     - role: syncthing
       tags: [syncthing]
+    # The tunnel connector runs only where the site is published from. Like
+    # web_hosts, membership lives in the untracked inventory.
+    - role: cloudflared
+      tags: [cloudflared]
+      when: "'tunnel_hosts' in group_names"

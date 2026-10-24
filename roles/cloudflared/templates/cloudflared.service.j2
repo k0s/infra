@@ -1,0 +1,18 @@
+# Managed by k0s/infra (roles/cloudflared). Local edits are overwritten.
+#
+# The tunnel token is read from {{ cloudflared_token_file }} (root, 0600), so
+# it appears neither in this world-readable file nor in the process list.
+[Unit]
+Description=cloudflared
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+TimeoutStartSec=15
+Type=notify
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token-file {{ cloudflared_token_file }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

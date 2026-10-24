@@ -38,3 +38,9 @@ CHANGEME
 # and the role silently skips.
 [backup_hosts]
 CHANGEME
+
+# roles/cloudflared is applied ONLY to hosts in this group: the host that
+# connects the site to its Cloudflare Tunnel. Its token goes in a root-only
+# file on that host, never in this inventory (see roles/cloudflared).
+[tunnel_hosts]
+CHANGEME
