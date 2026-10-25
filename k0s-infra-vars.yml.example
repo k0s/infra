@@ -26,6 +26,7 @@ restic_offsite_host: CHANGEME        # hostname of the off-site backup peer
 restic_offsite_path: "{{ ansible_facts.env.HOME }}/restic/mesh"
 
 k0sngin_service_user: CHANGEME       # the account k0sNgin's systemd service runs as
+navidrome_user: CHANGEME             # the account Navidrome's systemd service runs as
 
 # Devices that are not Ansible hosts (phones, a laptop), paired with every
 # syncthing_mesh host and shared the folders they name. Optional; see

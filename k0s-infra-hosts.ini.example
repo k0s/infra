@@ -44,3 +44,8 @@ CHANGEME
 # file on that host, never in this inventory (see roles/cloudflared).
 [tunnel_hosts]
 CHANGEME
+
+# roles/navidrome is applied ONLY to hosts in this group: the machine at the
+# TV with the speakers.
+[media_hosts]
+CHANGEME
