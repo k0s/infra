@@ -23,6 +23,8 @@
 #   cloudflared      - Cloudflare Tunnel connector as a systemd service, token
 #                      in a root-only file; applied ONLY to hosts in the
 #                      tunnel_hosts group
+#   navidrome        - Navidrome music server (localhost only), plus mpv and
+#                      ffmpeg; applied ONLY to hosts in the media_hosts group
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -100,3 +102,8 @@
     - role: cloudflared
       tags: [cloudflared]
       when: "'tunnel_hosts' in group_names"
+    # The music server runs only where the media is played. Like the other
+    # groups, membership lives in the untracked inventory.
+    - role: navidrome
+      tags: [navidrome]
+      when: "'media_hosts' in group_names"

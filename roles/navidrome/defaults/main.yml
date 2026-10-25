@@ -1,0 +1,21 @@
+---
+# Navidrome is fetched as a pinned release tarball and checked against the
+# release's published SHA-256 (navidrome_checksums.txt). Bump both together.
+# The tarball, not the .deb: the package adds its own account and config file,
+# while this role keeps the whole configuration in the unit as ND_* variables.
+navidrome_version: "0.64.2"
+navidrome_sha256: fdd87fd107818667c2c50bc24dc6ce856962c795b3822a91f95c066cfad2c53e
+navidrome_install_dir: "/opt/navidrome/{{ navidrome_version }}"
+
+# navidrome_user is deliberately NOT defaulted: it is host account data and
+# comes from the untracked vars file (see k0s-infra-vars.yml.example).
+navidrome_music_folder: "{{ ansible_facts.env.HOME }}/music"
+navidrome_address: 127.0.0.1
+navidrome_port: 4533
+navidrome_scan_schedule: "@every 1h"
+
+# mpv backs Navidrome's jukebox mode and any local player; ffmpeg is used for
+# transcoding when a browser can't play a format.
+navidrome_packages:
+  - mpv
+  - ffmpeg

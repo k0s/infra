@@ -1,0 +1,29 @@
+[Unit]
+Description=Navidrome music server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ navidrome_user }}
+Group={{ navidrome_user }}
+Environment="ND_MUSICFOLDER={{ navidrome_music_folder }}"
+Environment="ND_DATAFOLDER=/var/lib/navidrome"
+Environment="ND_ADDRESS={{ navidrome_address }}"
+Environment="ND_PORT={{ navidrome_port }}"
+Environment="ND_SCANNER_SCHEDULE={{ navidrome_scan_schedule }}"
+Environment="ND_ENABLEINSIGHTSCOLLECTOR=false"
+ExecStart={{ navidrome_install_dir }}/navidrome
+WorkingDirectory=/var/lib/navidrome
+StateDirectory=navidrome
+# The music folder is synced two-way elsewhere, so the server must not be
+# able to write there: home is read-only, everything else but its state
+# directory is read-only too.
+ProtectHome=read-only
+ProtectSystem=strict
+PrivateTmp=true
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
