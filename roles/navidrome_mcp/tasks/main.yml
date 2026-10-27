@@ -1,0 +1,84 @@
+---
+# The server falls back to environment variables only when no settings.json
+# exists, and with neither it opens a setup page in the desktop's browser.
+# So: the secrets file must exist, and settings.json must not.
+- name: Check for the secrets file
+  ansible.builtin.stat:
+    path: "{{ navidrome_mcp_config_dir }}/env"
+  register: navidrome_mcp_env
+
+- name: Require the secrets file, mode 600
+  ansible.builtin.assert:
+    that:
+      - navidrome_mcp_env.stat.exists
+      - navidrome_mcp_env.stat.mode == '0600'
+    fail_msg: >-
+      {{ navidrome_mcp_config_dir }}/env must exist with mode 600 and hold
+      NAVIDROME_PASSWORD and MCP_HTTP_AUTH_TOKEN; see roles/navidrome_mcp/README.md
+
+- name: Check for a settings.json
+  ansible.builtin.stat:
+    path: "{{ navidrome_mcp_config_dir }}/settings.json"
+  register: navidrome_mcp_settings
+
+- name: Refuse a settings.json, which would override the environment
+  ansible.builtin.assert:
+    that: not navidrome_mcp_settings.stat.exists
+    fail_msg: "Remove {{ navidrome_mcp_config_dir }}/settings.json; this role configures the server through its unit"
+
+- name: Check for a running desktop session
+  ansible.builtin.stat:
+    path: "/run/user/{{ ansible_facts.user_uid }}/bus"
+  register: navidrome_mcp_session
+
+- name: Require a running desktop session (the unit and mpv's audio live in it)
+  ansible.builtin.assert:
+    that: navidrome_mcp_session.stat.exists
+    fail_msg: "No user session on this host; log in at its desktop first"
+
+- name: Install Node
+  become: true
+  ansible.builtin.apt:
+    name: "{{ navidrome_mcp_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install the pinned navidrome-mcp
+  ansible.builtin.command:
+    argv:
+      - npm
+      - install
+      - --ignore-scripts
+      - --no-audit
+      - --no-fund
+      - --prefix
+      - "{{ navidrome_mcp_install_dir }}"
+      - "navidrome-mcp@{{ navidrome_mcp_version }}"
+    creates: "{{ navidrome_mcp_install_dir }}/node_modules/navidrome-mcp/package.json"
+  notify: Restart navidrome-mcp
+
+- name: Create the user unit directory
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+    state: directory
+    mode: "0755"
+
+- name: Install the navidrome-mcp user unit
+  ansible.builtin.template:
+    src: navidrome-mcp.service.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/navidrome-mcp.service"
+    mode: "0644"
+  notify: Restart navidrome-mcp
+
+# Skipped in check mode: on a first dry run the unit doesn't exist yet.
+- name: Enable and start navidrome-mcp
+  when: not ansible_check_mode
+  ansible.builtin.systemd_service:
+    scope: user
+    name: navidrome-mcp
+    enabled: true
+    state: started
+    daemon_reload: true
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.user_uid }}"

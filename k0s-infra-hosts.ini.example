@@ -49,3 +49,10 @@ CHANGEME
 # TV with the speakers.
 [media_hosts]
 CHANGEME
+
+# roles/navidrome_mcp is applied ONLY to hosts in this group: a media host
+# whose desktop session plays through the speakers. Its secrets file must exist
+# first (see roles/navidrome_mcp). To serve the LAN, set per host:
+#   navidrome_mcp_expose=true navidrome_mcp_allowed_hosts=<name>:3000,localhost:3000
+[navidrome_mcp_hosts]
+CHANGEME

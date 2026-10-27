@@ -1,0 +1,22 @@
+---
+# navidrome-mcp is installed from npm at a pinned version, per user, into a
+# versioned directory. npm checks the registry's integrity hash; the package
+# has no install scripts, so they are disabled outright.
+navidrome_mcp_version: "2.6.0"
+navidrome_mcp_install_dir: "{{ ansible_facts.env.HOME }}/.local/lib/navidrome-mcp/{{ navidrome_mcp_version }}"
+navidrome_mcp_config_dir: "{{ ansible_facts.env.HOME }}/.config/navidrome-mcp"
+
+# A dedicated non-admin Navidrome account; its password is in the secrets file.
+navidrome_mcp_navidrome_url: http://localhost:4533
+navidrome_mcp_username: claude
+
+# Loopback by default. A host that serves the LAN sets expose and the Host
+# header names its clients use, in the untracked inventory.
+navidrome_mcp_port: 3000
+navidrome_mcp_expose: false
+navidrome_mcp_allowed_hosts: "localhost:{{ navidrome_mcp_port }},127.0.0.1:{{ navidrome_mcp_port }}"
+
+navidrome_mcp_mpv_path: /usr/bin/mpv
+navidrome_mcp_packages:
+  - nodejs
+  - npm
