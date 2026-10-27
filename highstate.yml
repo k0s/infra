@@ -25,6 +25,9 @@
 #                      tunnel_hosts group
 #   navidrome        - Navidrome music server (localhost only), plus mpv and
 #                      ffmpeg; applied ONLY to hosts in the media_hosts group
+#   navidrome_mcp    - Navidrome-MCP server (user service, plays through the
+#                      desktop session's audio); applied ONLY to hosts in the
+#                      navidrome_mcp_hosts group
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -107,3 +110,8 @@
     - role: navidrome
       tags: [navidrome]
       when: "'media_hosts' in group_names"
+    # The MCP player runs where the speakers are, and needs a desktop session.
+    # Like the other groups, membership lives in the untracked inventory.
+    - role: navidrome_mcp
+      tags: [navidrome_mcp]
+      when: "'navidrome_mcp_hosts' in group_names"

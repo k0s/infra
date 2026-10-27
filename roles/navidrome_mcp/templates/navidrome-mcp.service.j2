@@ -1,0 +1,21 @@
+[Unit]
+Description=Navidrome MCP server (plays through this session's audio)
+
+[Service]
+Environment="NAVIDROME_URL={{ navidrome_mcp_navidrome_url }}"
+Environment="NAVIDROME_USERNAME={{ navidrome_mcp_username }}"
+Environment="MCP_TRANSPORT=http"
+Environment="MCP_HTTP_PORT={{ navidrome_mcp_port }}"
+Environment="MCP_HTTP_EXPOSE={{ navidrome_mcp_expose | bool | lower }}"
+Environment="MCP_HTTP_ALLOWED_HOSTS={{ navidrome_mcp_allowed_hosts }}"
+Environment="WEBUI_ENABLED=false"
+Environment="MPV_PATH={{ navidrome_mcp_mpv_path }}"
+# NAVIDROME_PASSWORD and MCP_HTTP_AUTH_TOKEN; mode 600, never templated.
+EnvironmentFile={{ navidrome_mcp_config_dir }}/env
+ExecStart=/usr/bin/node {{ navidrome_mcp_install_dir }}/node_modules/navidrome-mcp/dist/index.js
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
