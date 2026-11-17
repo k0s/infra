@@ -56,3 +56,8 @@ CHANGEME
 #   navidrome_mcp_expose=true navidrome_mcp_allowed_hosts=<name>:3000,localhost:3000
 [navidrome_mcp_hosts]
 CHANGEME
+
+# roles/asp_service is applied ONLY to hosts in this group. asp writes into
+# synced directories, so list one host. Set asp_service_port here if 8765 is taken.
+[asp_hosts]
+CHANGEME

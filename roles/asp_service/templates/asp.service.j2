@@ -1,0 +1,14 @@
+[Unit]
+Description=asp: keeps {{ asp_service_config.roots | list | join(', ') }} reconciled; dashboard on 127.0.0.1:{{ asp_service_port }}
+
+[Service]
+ExecStart={{ asp_service_venv }}/bin/asp serve --config {{ asp_service_config_file }} --host 127.0.0.1 --port {{ asp_service_port }} --watch --settle {{ asp_service_settle }} --interval {{ asp_service_interval }}
+Restart=on-failure
+RestartSec=5s
+# Thumbnailing is background work; keep it out of the way of everything else.
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

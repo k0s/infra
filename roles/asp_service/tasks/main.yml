@@ -1,0 +1,135 @@
+---
+- name: Require a configuration
+  ansible.builtin.assert:
+    that:
+      - asp_service_config is defined
+      - asp_service_config is mapping
+      - asp_service_config.roots is defined
+    fail_msg: "Set asp_service_config (roots, db, watchers); see roles/asp_service/README.md"
+
+- name: Check for uv
+  ansible.builtin.stat:
+    path: "{{ asp_service_uv }}"
+  register: asp_service_uv_stat
+
+- name: Require uv
+  ansible.builtin.assert:
+    that: asp_service_uv_stat.stat.executable | default(false)
+    fail_msg: >-
+      {{ asp_service_uv }} is missing. Install uv for this user (https://docs.astral.sh/uv/),
+      or set asp_service_uv to where it is.
+
+- name: Create the virtualenv
+  ansible.builtin.command:
+    argv: ["{{ asp_service_uv }}", venv, --python, "{{ asp_service_python }}", "{{ asp_service_venv }}"]
+    creates: "{{ asp_service_venv }}/bin/python"
+
+- name: See what the virtualenv has
+  ansible.builtin.command:
+    argv: ["{{ asp_service_uv }}", pip, list, --python, "{{ asp_service_venv }}/bin/python", --format, json]
+  register: asp_service_installed
+  changed_when: false
+  # No virtualenv yet (a first dry run) means nothing is installed.
+  failed_when: false
+  check_mode: false
+
+- name: Note the installed packages
+  ansible.builtin.set_fact:
+    asp_service_installed_names: >-
+      {{ (asp_service_installed.stdout | from_json | map(attribute='name') | list)
+         if asp_service_installed.rc == 0 else [] }}
+
+- name: Install asp
+  when: asp_service_upgrade | bool or 'asp' not in asp_service_installed_names
+  ansible.builtin.command:
+    argv: >-
+      {{ [asp_service_uv, 'pip', 'install', '--python', asp_service_venv + '/bin/python']
+         + (['--reinstall-package', 'asp'] if asp_service_upgrade | bool else [])
+         + [asp_service_package] }}
+  register: asp_service_install
+  changed_when: "'Installed' in asp_service_install.stderr"
+  notify: Restart asp
+
+- name: Install the watchers
+  when: >-
+    asp_service_upgrade | bool or
+    (asp_service_watchers | map('regex_replace', '^([A-Za-z0-9_.-]+).*$', '\1') | difference(asp_service_installed_names) | length > 0)
+  ansible.builtin.command:
+    argv: >-
+      {{ [asp_service_uv, 'pip', 'install', '--python', asp_service_venv + '/bin/python', '--no-deps']
+         + (['--reinstall'] if asp_service_upgrade | bool else [])
+         + asp_service_watchers }}
+  register: asp_service_watchers_install
+  changed_when: "'Installed' in asp_service_watchers_install.stderr"
+  notify: Restart asp
+
+- name: Install what the watchers need
+  when: asp_service_watcher_requires | length > 0
+  ansible.builtin.command:
+    argv: "{{ [asp_service_uv, 'pip', 'install', '--python', asp_service_venv + '/bin/python'] + asp_service_watcher_requires }}"
+  register: asp_service_requires_install
+  changed_when: "'Installed' in asp_service_requires_install.stderr"
+  notify: Restart asp
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: "{{ asp_service_config_file | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Write asp.json
+  ansible.builtin.copy:
+    content: "{{ asp_service_config | to_nice_json }}\n"
+    dest: "{{ asp_service_config_file }}"
+    mode: "0644"
+  notify: Restart asp
+
+- name: Check the configuration loads
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv: ["{{ asp_service_venv }}/bin/asp", rules, --config, "{{ asp_service_config_file }}"]
+  changed_when: false
+
+- name: Create the user unit directory
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+    state: directory
+    mode: "0755"
+
+- name: Install the asp user unit
+  ansible.builtin.template:
+    src: asp.service.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/asp.service"
+    mode: "0644"
+  notify: Restart asp
+
+- name: Keep the service running without a login session
+  when: asp_service_linger | bool
+  become: true
+  ansible.builtin.command:
+    argv: [loginctl, enable-linger, "{{ ansible_facts.user_id }}"]
+    creates: "/var/lib/systemd/linger/{{ ansible_facts.user_id }}"
+
+# Skipped in check mode: on a first dry run the unit doesn't exist yet.
+- name: Enable and start asp
+  when: not ansible_check_mode
+  ansible.builtin.systemd_service:
+    scope: user
+    name: asp
+    enabled: true
+    state: started
+    daemon_reload: true
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.user_uid }}"
+
+- name: Apply a pending restart before checking
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the dashboard
+  when: not ansible_check_mode
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ asp_service_port }}/api/summary"
+  register: asp_service_up
+  until: asp_service_up.status == 200
+  retries: 30
+  delay: 1

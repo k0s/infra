@@ -28,6 +28,8 @@
 #   navidrome_mcp    - Navidrome-MCP server (user service, plays through the
 #                      desktop session's audio); applied ONLY to hosts in the
 #                      navidrome_mcp_hosts group
+#   asp_service      - asp, the file pipeline (thumbnails), as a user service;
+#                      applied ONLY to hosts in the asp_hosts group
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -115,3 +117,9 @@
     - role: navidrome_mcp
       tags: [navidrome_mcp]
       when: "'navidrome_mcp_hosts' in group_names"
+    # asp writes derived files into synced directories, so it runs on one
+    # host only: the others receive what it makes. Membership lives in the
+    # untracked inventory.
+    - role: asp_service
+      tags: [asp_service]
+      when: "'asp_hosts' in group_names"
