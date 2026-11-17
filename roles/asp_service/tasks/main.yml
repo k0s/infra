@@ -103,9 +103,10 @@
     mode: "0644"
   notify: Restart asp
 
+# Lingering for one's own user is allowed without authentication by systemd's
+# default polkit policy (org.freedesktop.login1.set-self-linger), so no root.
 - name: Keep the service running without a login session
   when: asp_service_linger | bool
-  become: true
   ansible.builtin.command:
     argv: [loginctl, enable-linger, "{{ ansible_facts.user_id }}"]
     creates: "/var/lib/systemd/linger/{{ ansible_facts.user_id }}"

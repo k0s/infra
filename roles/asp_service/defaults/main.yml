@@ -35,5 +35,6 @@ asp_service_settle: 2
 asp_service_interval: 900
 
 # A user service runs while its user is logged in. true keeps it running
-# without a session (loginctl enable-linger), which needs root.
+# without a session, from boot (loginctl enable-linger for this user; systemd's
+# default polkit policy allows that without root).
 asp_service_linger: false

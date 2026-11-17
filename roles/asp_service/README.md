@@ -6,7 +6,7 @@ its watchers when something changes, and serves its dashboard on loopback.
 
 - asp and its watchers in one virtualenv (`~/.local/lib/asp/venv`), installed
   with [uv](https://docs.astral.sh/uv/), which must already be installed for the
-  user. Nothing here needs root, unless `asp_service_linger` is set.
+  user. Nothing here needs root.
 - The configuration is written from `asp_service_config` to `~/.config/asp/asp.json`.
 - `asp serve --watch`: a pass a couple of seconds after each change, and every 15
   minutes regardless.
@@ -27,9 +27,10 @@ asp_service_config:
 
 asp does not follow symlinks; a directory reached through one needs its own root.
 
-Per host, in the inventory: `asp_service_port` (default 8765). `asp_service_linger=true` keeps the
-service running with nobody logged in; it runs `loginctl enable-linger`, so apply
-with `--ask-become-pass`.
+Per host, in the inventory: `asp_service_port` (default 8765), and
+`asp_service_linger=true` to keep the service running from boot with nobody logged
+in. That runs `loginctl enable-linger` for the user, which systemd's default polkit
+policy allows without root; a host whose policy differs fails that task.
 
 ## Operate
 
