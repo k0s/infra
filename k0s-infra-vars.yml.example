@@ -39,3 +39,12 @@ navidrome_user: CHANGEME             # the account Navidrome's systemd service r
 # Shared between the links and k0sngin_service roles (K0SNGIN_LINKS reads the
 # same file at runtime) — one variable, not a path duplicated in two places.
 links_file: "{{ ansible_facts.env.HOME }}/web/links.json"
+
+# asp, on asp_hosts: its asp.json, as YAML. Roots are the directories it
+# manages; asp does not follow symlinks, so one reached through a link needs a
+# root of its own. See roles/asp_service/README.md.
+# asp_service_config:
+#   roots:
+#     site: "~/web/site"
+#   db: "~/.local/state/asp/asp.db"
+#   watchers: [snakewatchers.thumbs]

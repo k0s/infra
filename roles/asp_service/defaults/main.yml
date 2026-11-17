@@ -1,0 +1,39 @@
+---
+# asp and its watchers are installed per user, into one virtualenv, with uv.
+# No step needs root.
+asp_service_uv: "{{ ansible_facts.env.HOME }}/.local/bin/uv"
+asp_service_python: "3.13"
+asp_service_venv: "{{ ansible_facts.env.HOME }}/.local/lib/asp/venv"
+asp_service_package: "asp[web,monitor] @ git+https://github.com/k0s/asp"
+
+# Watchers are installed without their dependencies, because they declare asp
+# itself as one and would pull it from a different source than the line above.
+# What they need besides asp is listed here instead.
+asp_service_watchers:
+  - "snakewatchers @ git+https://github.com/k0s/snakewatchers"
+asp_service_watcher_requires:
+  - pillow
+
+# true: reinstall asp and the watchers from their sources, picking up new
+# commits. Otherwise a host that has them keeps what it has.
+asp_service_upgrade: false
+
+# The engine's configuration (asp.json). Required, and host-specific: the
+# roots it manages, the journal, the watchers to load. See the role README.
+# asp_service_config:
+#   roots: {site: "~/site"}
+#   db: "~/.local/state/asp/asp.db"
+#   watchers: [snakewatchers.thumbs]
+asp_service_config_file: "{{ ansible_facts.env.HOME }}/.config/asp/asp.json"
+
+# The dashboard, loopback only.
+asp_service_port: 8765
+# A pass after every change the monitor sees, once things have been quiet for
+# asp_service_settle seconds; and one every asp_service_interval seconds regardless, for
+# anything it missed.
+asp_service_settle: 2
+asp_service_interval: 900
+
+# A user service runs while its user is logged in. true keeps it running
+# without a session (loginctl enable-linger), which needs root.
+asp_service_linger: false
