@@ -30,6 +30,9 @@
 #                      navidrome_mcp_hosts group
 #   asp_service      - asp, the file pipeline (thumbnails), as a user service;
 #                      applied ONLY to hosts in the asp_hosts group
+#   samplemark_service - samplemark, which records the desktop session's audio
+#                      output for clips marked from a phone, as a user service;
+#                      applied ONLY to hosts in the samplemark_hosts group
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -123,3 +126,9 @@
     - role: asp_service
       tags: [asp_service]
       when: "'asp_hosts' in group_names"
+    # samplemark records what the desktop session plays, so it runs where the
+    # films are watched and needs a desktop session. Like the other groups,
+    # membership lives in the untracked inventory.
+    - role: samplemark_service
+      tags: [samplemark_service]
+      when: "'samplemark_hosts' in group_names"

@@ -1,0 +1,15 @@
+[Unit]
+Description=samplemark: mark and save audio samples (records this session's audio output)
+After=pipewire.service
+
+[Service]
+Environment="SAMPLEMARK_HOST={{ samplemark_service_host }}"
+Environment="SAMPLEMARK_PORT={{ samplemark_service_port }}"
+Environment="SAMPLEMARK_OUTPUT={{ samplemark_service_output }}"
+ExecStart={{ samplemark_service_venv }}/bin/samplemark
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
