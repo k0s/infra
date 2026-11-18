@@ -1,0 +1,23 @@
+---
+# The application checkout the unit runs from. Cloned only if absent and never
+# updated here, like k0sngin_service: deploying a new version is a separate
+# step (see README.md).
+samplemark_service_src: "{{ ansible_facts.env.HOME }}/src/samplemark"
+samplemark_service_repo: https://github.com/k0s/samplemark.git
+samplemark_service_venv: "{{ samplemark_service_src }}/.venv"
+
+# uv builds the virtualenv from the repo's uv.lock (`uv sync --frozen`). Fetched
+# as a pinned release, checked against its published SHA-256, into a directory
+# of its own. Same release as k0sngin_service; bump both values together.
+samplemark_service_uv_version: "0.9.17"
+samplemark_service_uv_target: x86_64-unknown-linux-gnu
+samplemark_service_uv_sha256: 0114d54f9aafd07516cf1cadfe72afa970f5fd293fbe82dd924b8a7b42c984d8
+samplemark_service_uv_dir: "{{ ansible_facts.env.HOME }}/.local/share/samplemark-uv/{{ samplemark_service_uv_version }}"
+
+# Loopback by default. samplemark has no authentication: a host that serves
+# phones on its LAN sets samplemark_service_host in the untracked inventory.
+samplemark_service_host: 127.0.0.1
+samplemark_service_port: 8470
+
+# Where clips are written. Created if missing.
+samplemark_service_output: "{{ ansible_facts.env.HOME }}/samplemark-inbox"
