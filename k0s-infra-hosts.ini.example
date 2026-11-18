@@ -61,3 +61,9 @@ CHANGEME
 # synced directories, so list one host. Set asp_service_port here if 8765 is taken.
 [asp_hosts]
 CHANGEME
+
+# samplemark (roles/samplemark_service): records the desktop session's audio
+# output, so the machine where films are watched; needs a desktop session. It
+# has no authentication: set samplemark_service_host only on a trusted LAN.
+[samplemark_hosts]
+CHANGEME samplemark_service_host=0.0.0.0
