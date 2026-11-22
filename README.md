@@ -30,6 +30,7 @@ roles/
   cloudflared/         # Cloudflare Tunnel connector, token in a root-only file (server role)
   asp_service/         # asp, the file pipeline, as a user service (one host)
   samplemark_service/  # samplemark, audio clips marked from a phone, as a user service
+  service_index/       # a port-80 page linking the host's web services
   grub_display/        # pin GRUB's mode so a marginal display stays visible
   remote_unlock/       # SSH in the initramfs, to unlock an encrypted root
 ```

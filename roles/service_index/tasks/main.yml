@@ -4,3 +4,6 @@
 - name: Render the page
   ansible.builtin.import_tasks: page.yml
   tags: [service_index_page]
+
+- name: Serve the page
+  ansible.builtin.import_tasks: unit.yml
