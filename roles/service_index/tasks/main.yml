@@ -1,0 +1,6 @@
+---
+# The page needs no root and can be rendered alone with --tags service_index_page.
+# The unit (root) serves it on service_index_port.
+- name: Render the page
+  ansible.builtin.import_tasks: page.yml
+  tags: [service_index_page]

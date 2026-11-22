@@ -33,6 +33,10 @@
 #   samplemark_service - samplemark, which records the desktop session's audio
 #                      output for clips marked from a phone, as a user service;
 #                      applied ONLY to hosts in the samplemark_hosts group
+#   service_index    - a port-80 page linking the host's web services (static
+#                      page + system unit); applied ONLY to hosts in the
+#                      service_index_hosts group. --tags service_index_page
+#                      renders the page alone, without root
 #
 # syncthing shares folders with every other host in the syncthing_mesh
 # inventory group (see ~/web/k0s-infra-hosts.ini.example), via cross-host
@@ -132,3 +136,9 @@
     - role: samplemark_service
       tags: [samplemark_service]
       when: "'samplemark_hosts' in group_names"
+    # A port-80 page linking the host's web services. Listed last: it reads the
+    # other roles' port and address variables. Like the other groups, membership
+    # lives in the untracked inventory.
+    - role: service_index
+      tags: [service_index]
+      when: "'service_index_hosts' in group_names"
