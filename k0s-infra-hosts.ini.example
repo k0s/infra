@@ -67,3 +67,8 @@ CHANGEME
 # has no authentication: set samplemark_service_host only on a trusted LAN.
 [samplemark_hosts]
 CHANGEME samplemark_service_host=0.0.0.0
+
+# roles/service_index: a port-80 page linking the host's web services.
+# Loopback by default; set service_index_address=0.0.0.0 to show it to the LAN.
+[service_index_hosts]
+CHANGEME

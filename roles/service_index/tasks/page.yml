@@ -1,0 +1,12 @@
+---
+- name: Create the service index directory
+  ansible.builtin.file:
+    path: "{{ service_index_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Render the service index page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ service_index_dir }}/index.html"
+    mode: "0644"

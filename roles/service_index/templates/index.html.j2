@@ -1,0 +1,71 @@
+{# Rendered by k0s/infra roles/service_index; edits here are overwritten. #}
+{% set host = ansible_facts.hostname %}
+{% set ns = namespace(lan=[], local=[]) %}
+{% for s in service_index_known + service_index_extra %}
+{%   if s.group is not defined or s.group in group_names %}
+{%     if (s.address | default('127.0.0.1')) in service_index_loopback %}
+{%       set ns.local = ns.local + [s] %}
+{%     else %}
+{%       set ns.lan = ns.lan + [s] %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ host }} services</title>
+<style>
+:root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fafaf7; --muted: #6b6b6b; --line: #ddd; --link: #0b57d0; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e8e8e3; --bg: #161616; --muted: #9a9a9a; --line: #333; --link: #8ab4f8; } }
+body { margin: 0 auto; max-width: 40rem; padding: 2rem 1rem; font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 2rem 0 .5rem; }
+ul { list-style: none; margin: 0; padding: 0; }
+li { border-top: 1px solid var(--line); padding: .6rem 0; display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; }
+a { color: var(--link); font-weight: 600; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.desc, .note { color: var(--muted); font-size: .9rem; }
+.port { color: var(--muted); font: .85rem ui-monospace, monospace; }
+.away a { color: var(--muted); font-weight: 400; }
+</style>
+</head>
+<body>
+<h1>{{ host }}</h1>
+{% if ns.lan %}
+<h2>LAN</h2>
+<ul>
+{% for s in ns.lan %}
+<li><span><a href="http://{{ host }}:{{ s.port }}{{ s.path | default('/') }}" data-port="{{ s.port }}" data-path="{{ s.path | default('/') }}" target="_blank" rel="noopener">{{ s.name | e }}</a> <span class="desc">{{ s.description | default('') | e }}</span></span><span class="port">:{{ s.port }}</span></li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if ns.local %}
+<h2>This box only</h2>
+<ul id="local">
+{% for s in ns.local %}
+<li><span><a href="http://localhost:{{ s.port }}{{ s.path | default('/') }}" target="_blank" rel="noopener">{{ s.name | e }}</a> <span class="desc">{{ s.description | default('') | e }}</span></span><span class="port">:{{ s.port }}</span></li>
+{% endfor %}
+</ul>
+<p class="note" id="away" hidden>These answer only on {{ host }} itself.</p>
+{% endif %}
+{% if not (ns.lan or ns.local) %}
+<p class="note">No services listed for {{ host }}.</p>
+{% endif %}
+<script>
+(function () {
+  if (location.protocol !== "http:") return;
+  document.querySelectorAll("a[data-port]").forEach(function (a) {
+    var u = new URL(location.href);
+    u.port = a.dataset.port; u.pathname = a.dataset.path; u.search = ""; u.hash = "";
+    a.href = u.href;
+  });
+  if (["localhost", "127.0.0.1", "[::1]"].indexOf(location.hostname) < 0) {
+    var l = document.getElementById("local");
+    if (l) { l.classList.add("away"); document.getElementById("away").hidden = false; }
+  }
+})();
+</script>
+</body>
+</html>

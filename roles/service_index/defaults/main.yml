@@ -1,0 +1,56 @@
+---
+# Where the page is served. Loopback by default: a host that should show its
+# page to the LAN sets service_index_address in the untracked inventory.
+service_index_address: 127.0.0.1
+service_index_port: 80
+
+# The account the unit runs as, and where the rendered page lives.
+service_index_user: "{{ ansible_facts.user_id }}"
+service_index_dir: "{{ ansible_facts.env.HOME }}/.local/share/service-index"
+
+# k0sngin_service sets no port; 8000 is k0sNgin's own default.
+service_index_k0sngin_port: 8000
+
+# Bind addresses that mean "this box only".
+service_index_loopback: ["127.0.0.1", "localhost", "::1"]
+
+# Services installed by the other roles in highstate.yml. An entry is listed
+# when the host is in its group. port and address read the owning role's
+# variables: every role is in the same play, so their defaults are visible here.
+service_index_known:
+  - name: Navidrome
+    description: music
+    group: media_hosts
+    port: "{{ navidrome_port | default(4533) }}"
+    address: "{{ navidrome_address | default('127.0.0.1') }}"
+  - name: samplemark
+    description: mark clips from a phone
+    group: samplemark_hosts
+    port: "{{ samplemark_service_port | default(8470) }}"
+    address: "{{ samplemark_service_host | default('127.0.0.1') }}"
+  - name: Navidrome-MCP
+    description: health check (the API needs a token)
+    group: navidrome_mcp_hosts
+    port: "{{ navidrome_mcp_port | default(3000) }}"
+    address: "{{ '0.0.0.0' if (navidrome_mcp_expose | default(false) | bool) else '127.0.0.1' }}"
+    path: /healthz
+  - name: k0sNgin
+    description: the website
+    group: web_hosts
+    port: "{{ service_index_k0sngin_port }}"
+    address: 127.0.0.1
+  - name: Syncthing
+    description: sync GUI
+    group: syncthing_mesh
+    port: 8384
+    address: 127.0.0.1
+  - name: asp
+    description: thumbnail pipeline dashboard
+    group: asp_hosts
+    port: "{{ asp_service_port | default(8765) }}"
+    address: 127.0.0.1
+
+# Services no role here manages, set per host in the untracked inventory, e.g.
+#   service_index_extra='[{"name": "Ollama", "port": 11434}]'
+# Keys as above; group, path, description optional; address defaults to loopback.
+service_index_extra: []
