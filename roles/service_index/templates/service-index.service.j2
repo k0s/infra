@@ -1,0 +1,22 @@
+[Unit]
+Description=Service index on port {{ service_index_port }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ service_index_user }}
+Group={{ service_index_user }}
+ExecStart=/usr/bin/python3 -m http.server {{ service_index_port }} --bind {{ service_index_address }} --directory {{ service_index_dir }}
+# Bind a port below 1024 without running as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
