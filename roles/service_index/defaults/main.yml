@@ -51,6 +51,6 @@ service_index_known:
     address: 127.0.0.1
 
 # Services no role here manages, set per host in the untracked inventory, e.g.
-#   service_index_extra='[{"name": "Ollama", "port": 11434}]'
+#   service_index_extra='[{"name": "Example", "port": 9000}]'
 # Keys as above; group, path, description optional; address defaults to loopback.
 service_index_extra: []
